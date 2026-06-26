@@ -6,89 +6,44 @@ import io, base64
 
 st.set_page_config(page_title="Salas UCEN 2026-02", layout="wide", page_icon="🏫")
 
-# ── DARK THEME CSS ────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-  /* Force dark background */
-  [data-testid="stAppViewContainer"] {
-    background-color: #0d1117;
-    color: #e6edf3;
-  }
-  [data-testid="stSidebar"] {
-    background-color: #161b22;
-    border-right: 1px solid #30363d;
-  }
-  [data-testid="stSidebar"] * { color: #e6edf3 !important; }
-  /* Header */
+  [data-testid="stAppViewContainer"] { background-color: #0d1117; color: #ffffff; }
+  [data-testid="stSidebar"] { background-color: #161b22; border-right: 1px solid #30363d; }
+  [data-testid="stSidebar"] * { color: #ffffff !important; }
   [data-testid="stHeader"] { background-color: #0d1117; }
-  /* Metric cards */
+  section[data-testid="stMain"] * { color: #ffffff; }
+  p, span, label, div { color: #ffffff !important; }
+  h1 { color: #ffffff !important; font-size: 26px !important; }
+  h2, h3, h4 { color: #ffffff !important; }
+  [data-testid="stCaptionContainer"] { color: #c9d1d9 !important; }
   [data-testid="metric-container"] {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 10px;
-    padding: 12px 16px;
+    background: #161b22; border: 1px solid #30363d;
+    border-radius: 10px; padding: 12px 16px;
   }
-  [data-testid="metric-container"] label { color: #8b949e !important; font-size: 12px !important; }
+  [data-testid="metric-container"] label { color: #c9d1d9 !important; font-size: 12px !important; }
   [data-testid="metric-container"] [data-testid="stMetricValue"] { color: #58a6ff !important; font-size: 26px !important; font-weight: 600; }
-  [data-testid="metric-container"] [data-testid="stMetricDelta"] { font-size: 13px !important; }
-  /* Tabs */
-  [data-testid="stTabs"] button {
-    color: #8b949e !important;
-    border-bottom: 2px solid transparent;
-    font-size: 13px;
-  }
-  [data-testid="stTabs"] button[aria-selected="true"] {
-    color: #58a6ff !important;
-    border-bottom: 2px solid #58a6ff !important;
-  }
-  /* Dataframe */
+  [data-testid="metric-container"] [data-testid="stMetricDelta"] { color: #3fb950 !important; font-size: 13px !important; }
+  [data-testid="stTabs"] button { color: #c9d1d9 !important; border-bottom: 2px solid transparent; font-size: 13px; }
+  [data-testid="stTabs"] button[aria-selected="true"] { color: #ffffff !important; border-bottom: 2px solid #58a6ff !important; font-weight: 600; }
   [data-testid="stDataFrame"] { border: 1px solid #30363d; border-radius: 8px; }
-  /* Selectbox, multiselect */
-  [data-testid="stSelectbox"] > div > div,
-  [data-testid="stMultiSelect"] > div > div {
-    background: #161b22 !important;
-    border-color: #30363d !important;
-    color: #e6edf3 !important;
-  }
-  /* Text input */
-  [data-testid="stTextInput"] input {
-    background: #161b22 !important;
-    border-color: #30363d !important;
-    color: #e6edf3 !important;
-  }
-  /* Slider */
-  [data-testid="stSlider"] { color: #58a6ff; }
-  /* Download button */
-  [data-testid="stDownloadButton"] button {
-    background: #161b22 !important;
-    border: 1px solid #30363d !important;
-    color: #58a6ff !important;
-    border-radius: 6px;
-  }
-  [data-testid="stDownloadButton"] button:hover {
-    border-color: #58a6ff !important;
-    background: #1f2d3d !important;
-  }
-  /* Success/warning boxes */
-  [data-testid="stAlert"] { border-radius: 8px; }
-  /* Divider */
+  [data-testid="stDataFrame"] * { color: #ffffff !important; }
+  [data-testid="stSelectbox"] > div > div { background: #161b22 !important; border-color: #30363d !important; color: #ffffff !important; }
+  [data-testid="stMultiSelect"] > div > div { background: #161b22 !important; border-color: #30363d !important; color: #ffffff !important; }
+  [data-testid="stTextInput"] input { background: #161b22 !important; border-color: #30363d !important; color: #ffffff !important; }
+  [data-testid="stDownloadButton"] button { background: #161b22 !important; border: 1px solid #30363d !important; color: #58a6ff !important; border-radius: 6px; }
+  [data-testid="stDownloadButton"] button:hover { border-color: #58a6ff !important; }
   hr { border-color: #30363d; }
-  /* Title */
-  h1 { color: #e6edf3 !important; }
-  h2, h3 { color: #cdd9e5 !important; }
-  /* Caption */
-  [data-testid="stCaptionContainer"] { color: #8b949e !important; }
-  /* Sidebar title */
-  [data-testid="stSidebar"] h1 { color: #58a6ff !important; }
+  [data-testid="stMarkdownContainer"] p { color: #ffffff !important; }
+  [data-testid="stMarkdownContainer"] li { color: #ffffff !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── PLOTLY DARK TEMPLATE ──────────────────────────────────────────────────────
 PTMPL = "plotly_dark"
 PLOT_BG = "#0d1117"
 PAPER_BG = "#0d1117"
 GRID_COLOR = "#30363d"
-FONT_COLOR = "#e6edf3"
+FONT_COLOR = "#ffffff"
 
 def dark_layout(fig, height=380):
     fig.update_layout(
@@ -96,13 +51,12 @@ def dark_layout(fig, height=380):
         plot_bgcolor=PLOT_BG, paper_bgcolor=PAPER_BG,
         font=dict(color=FONT_COLOR, size=12),
         margin=dict(t=40, b=20, l=10, r=10),
-        legend=dict(bgcolor="#161b22", bordercolor="#30363d", borderwidth=1),
-        xaxis=dict(gridcolor=GRID_COLOR, linecolor="#30363d"),
-        yaxis=dict(gridcolor=GRID_COLOR, linecolor="#30363d"),
+        legend=dict(bgcolor="#161b22", bordercolor="#30363d", borderwidth=1, font=dict(color="#ffffff")),
+        xaxis=dict(gridcolor=GRID_COLOR, linecolor="#30363d", tickfont=dict(color="#ffffff"), title_font=dict(color="#ffffff")),
+        yaxis=dict(gridcolor=GRID_COLOR, linecolor="#30363d", tickfont=dict(color="#ffffff"), title_font=dict(color="#ffffff")),
     )
     return fig
 
-# Accent colors for charts
 BLUES  = ["#1e3a5f","#1d4e89","#2563a8","#3b82c4","#58a6ff","#79b8ff","#a5d0ff"]
 MULTI  = ["#58a6ff","#3fb950","#f78166","#d2a8ff","#ffa657","#76e3ea","#ff7b72"]
 GREEN  = "#3fb950"
@@ -133,10 +87,9 @@ RANGO_ORDER = ["≤20 pax","21-30 pax","31-40 pax","41-50 pax","51+ pax"]
 EFCAT_ORDER = ["Muy baja (<30%)","Baja (30-50%)","Media (50-70%)","Alta (70-90%)","Óptima/Exceso (>90%)"]
 
 for df, col, mapping in [
-    (df_res,"Ed_corto",ED_SHORT), (df_det,"Ed_corto",ED_SHORT),
-    (df_fac,"Fac_corto",FAC_SHORT), (df_cfm,"Fac_corto",FAC_SHORT),
-    (df_ct,"Fac_corto",FAC_SHORT), (df_ef_fac,"Fac_corto",FAC_SHORT),
-    (df_doc,"Fac_corto",FAC_SHORT),
+    (df_res,"Ed_corto",ED_SHORT),(df_det,"Ed_corto",ED_SHORT),
+    (df_fac,"Fac_corto",FAC_SHORT),(df_cfm,"Fac_corto",FAC_SHORT),
+    (df_ct,"Fac_corto",FAC_SHORT),(df_ef_fac,"Fac_corto",FAC_SHORT),(df_doc,"Fac_corto",FAC_SHORT),
 ]:
     src = "Edificio" if col=="Ed_corto" else "Facultad" if "Facultad" in df.columns else "FACULTAD"
     df[col] = df[src].map(mapping).fillna(df[src])
@@ -149,7 +102,6 @@ global_total_ocp = ocup_ed_df["Bloques_Ocupados_Ed"].sum()
 global_total_pos = ocup_ed_df["Bloques_Posibles_Ed"].sum()
 PCT_GLOBAL = round(global_total_ocp/global_total_pos*100,1)
 
-# ── SIDEBAR ───────────────────────────────────────────────────────────────────
 st.sidebar.markdown("## 🔎 Filtros")
 edificios_opts = list(ED_SHORT.values())
 sel_ed = st.sidebar.multiselect("Edificio", edificios_opts, default=edificios_opts)
@@ -159,18 +111,16 @@ sel_mods = st.sidebar.multiselect("Módulo", list(MODULOS.keys()), format_func=l
 fr = df_res[df_res["Ed_corto"].isin(sel_ed)&df_res["Dia"].isin(sel_dias)&df_res["Modulo"].isin(sel_mods)].copy()
 fd = df_det[df_det["Ed_corto"].isin(sel_ed)&df_det["Dia"].isin(sel_dias)&df_det["Modulo"].isin(sel_mods)].copy()
 
-# ── HEADER ────────────────────────────────────────────────────────────────────
 st.markdown("""
-<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
-  <span style="font-size:32px">🏫</span>
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;">
+  <span style="font-size:34px">🏫</span>
   <div>
-    <h1 style="margin:0;font-size:26px;color:#e6edf3;">Disponibilidad de Salas · 2026-02 · Santiago</h1>
-    <p style="margin:0;color:#8b949e;font-size:13px;">Salas de clases y laboratorios · Diurno L–V · Módulos 1–7</p>
+    <h1 style="margin:0;font-size:26px;color:#ffffff;">Disponibilidad de Salas · 2026-02 · Santiago</h1>
+    <p style="margin:0;color:#c9d1d9;font-size:13px;">Salas de clases y laboratorios · Diurno L–V · Módulos 1–7</p>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── KPIs GLOBALES ─────────────────────────────────────────────────────────────
 st.markdown("### 📌 Ocupación global horario diurno")
 k1,k2,k3,k4,k5 = st.columns(5)
 k1.metric("Ocupación global",f"{PCT_GLOBAL}%",delta=f"{round(100-PCT_GLOBAL,1)}% disponible",delta_color="inverse")
@@ -183,35 +133,27 @@ col_g1,col_g2 = st.columns([1,2])
 with col_g1:
     fig_g = go.Figure(go.Indicator(
         mode="gauge+number", value=PCT_GLOBAL,
-        title={"text":"% Ocupación global","font":{"size":14,"color":"#e6edf3"}},
-        number={"font":{"color":"#58a6ff","size":36}},
+        title={"text":"% Ocupación global","font":{"size":14,"color":"#ffffff"}},
+        number={"font":{"color":"#58a6ff","size":38}},
         gauge={
-            "axis":{"range":[0,100],"tickcolor":"#8b949e","tickfont":{"color":"#8b949e"}},
-            "bar":{"color":"#58a6ff"},
-            "bgcolor":"#161b22",
-            "bordercolor":"#30363d",
-            "steps":[
-                {"range":[0,50],"color":"#0d2818"},
-                {"range":[50,75],"color":"#1a2f1a"},
-                {"range":[75,90],"color":"#2d2000"},
-                {"range":[90,100],"color":"#3d0f0f"}
-            ],
+            "axis":{"range":[0,100],"tickcolor":"#ffffff","tickfont":{"color":"#ffffff"}},
+            "bar":{"color":"#58a6ff"}, "bgcolor":"#161b22", "bordercolor":"#30363d",
+            "steps":[{"range":[0,50],"color":"#0d2818"},{"range":[50,75],"color":"#1a2f1a"},
+                     {"range":[75,90],"color":"#2d2000"},{"range":[90,100],"color":"#3d0f0f"}],
             "threshold":{"line":{"color":RED,"width":3},"thickness":0.75,"value":90}
         }
     ))
     fig_g.update_layout(height=260,paper_bgcolor=PLOT_BG,plot_bgcolor=PLOT_BG,
-        font=dict(color=FONT_COLOR),margin=dict(t=40,b=10,l=10,r=10))
+        font=dict(color="#ffffff"),margin=dict(t=40,b=10,l=10,r=10))
     st.plotly_chart(fig_g,use_container_width=True)
 with col_g2:
     ocup_s = ocup_ed_df.sort_values("Pct_Global_Edificio",ascending=True)
     fig_e = px.bar(ocup_s,x="Pct_Global_Edificio",y="Ed_corto",orientation="h",
-        color="Pct_Global_Edificio",color_continuous_scale=[[0,"#1e3a5f"],[0.5,"#2563a8"],[0.9,"#e3b341"],[1,"#f85149"]],
-        range_color=[0,100],text="Pct_Global_Edificio",
-        labels={"Pct_Global_Edificio":"% Ocupación","Ed_corto":""})
-    fig_e.update_traces(texttemplate="%{text}%",textposition="outside",textfont_color="#e6edf3")
-    fig_e.add_vline(x=90,line_dash="dash",line_color=RED,line_width=1.5,annotation_text="90%",annotation_font_color=RED)
-    dark_layout(fig_e,240)
-    fig_e.update_layout(coloraxis_showscale=False,xaxis_range=[0,115])
+        color="Pct_Global_Edificio",color_continuous_scale=[[0,"#1e3a5f"],[0.5,"#2563a8"],[0.9,ORANGE],[1,RED]],
+        range_color=[0,100],text="Pct_Global_Edificio",labels={"Pct_Global_Edificio":"% Ocupación","Ed_corto":""})
+    fig_e.update_traces(texttemplate="%{text}%",textposition="outside",textfont=dict(color="#ffffff",size=13))
+    fig_e.add_vline(x=90,line_dash="dash",line_color=RED,line_width=1.5,annotation_text="90%",annotation_font=dict(color=RED,size=12))
+    dark_layout(fig_e,240); fig_e.update_layout(coloraxis_showscale=False,xaxis_range=[0,115])
     st.plotly_chart(fig_e,use_container_width=True)
 
 st.divider()
@@ -228,37 +170,32 @@ tabs = st.tabs(["📊 Saturación","📅 Por día","🪑 Cupos","🎓 Facultades
                 "👨‍🏫 Carga docente","⚠️ Conflictos","📐 Eficiencia",
                 "🕐 Concentración","📋 Reservas","🔍 Detalle salas"])
 
-# ── TAB 1: SATURACIÓN ─────────────────────────────────────────────────────────
 with tabs[0]:
     if not fr.empty:
         p = fr.groupby(["Ed_corto","Modulo"])["Pct_Ocupacion"].mean().reset_index()
         p["ML"] = p["Modulo"].map(lambda x: MODULOS[x])
         fig = px.bar(p,x="ML",y="Pct_Ocupacion",color="Ed_corto",barmode="group",
-            color_discrete_sequence=MULTI,
-            labels={"ML":"","Pct_Ocupacion":"% Ocupación","Ed_corto":"Edificio"})
-        fig.add_hline(y=90,line_dash="dash",line_color=RED,line_width=1.5,annotation_text="90%",annotation_font_color=RED)
-        fig.add_hline(y=70,line_dash="dot",line_color=ORANGE,line_width=1,annotation_text="70%",annotation_font_color=ORANGE)
+            color_discrete_sequence=MULTI,labels={"ML":"","Pct_Ocupacion":"% Ocupación","Ed_corto":"Edificio"})
+        fig.add_hline(y=90,line_dash="dash",line_color=RED,line_width=1.5,annotation_text="90%",annotation_font=dict(color=RED))
+        fig.add_hline(y=70,line_dash="dot",line_color=ORANGE,line_width=1,annotation_text="70%",annotation_font=dict(color=ORANGE))
         dark_layout(fig,380); fig.update_layout(yaxis_range=[0,105])
         st.plotly_chart(fig,use_container_width=True)
-
         hm = fr.groupby(["Ed_corto","Modulo"])["Pct_Ocupacion"].mean().unstack("Modulo")
         hm.columns = [MODULOS[c] for c in hm.columns]
         fig2 = px.imshow(hm,text_auto=".1f",
-            color_continuous_scale=[[0,"#0d2818"],[0.5,"#1d4e89"],[0.9,"#e3b341"],[1,"#f85149"]],
+            color_continuous_scale=[[0,"#0d2818"],[0.5,"#1d4e89"],[0.9,ORANGE],[1,RED]],
             zmin=0,zmax=100,aspect="auto")
+        fig2.update_traces(textfont=dict(color="#ffffff",size=12))
         fig2.update_xaxes(tickangle=-20); dark_layout(fig2,260)
         st.plotly_chart(fig2,use_container_width=True)
-
         p2 = fr.groupby("Modulo")[["Libres","Ocupadas"]].mean().reset_index()
         p2["ML"] = p2["Modulo"].map(lambda x: MODULOS[x])
         fig3 = px.bar(p2.melt(id_vars="ML",value_vars=["Libres","Ocupadas"]),
             x="ML",y="value",color="variable",barmode="stack",
-            color_discrete_map={"Libres":GREEN,"Ocupadas":RED},
-            labels={"ML":"","value":"Salas","variable":""})
+            color_discrete_map={"Libres":GREEN,"Ocupadas":RED},labels={"ML":"","value":"Salas","variable":""})
         dark_layout(fig3,300)
         st.plotly_chart(fig3,use_container_width=True)
 
-# ── TAB 2: POR DÍA ────────────────────────────────────────────────────────────
 with tabs[1]:
     if not fr.empty:
         sel2 = st.selectbox("Edificio",sel_ed if sel_ed else edificios_opts,key="ed2")
@@ -269,8 +206,7 @@ with tabs[1]:
             p3["Dia"] = pd.Categorical(p3["Dia"],categories=DIAS_ORDER,ordered=True)
             fig4 = px.bar(p3.sort_values("Dia"),x="Dia",y="Libres",color="ML",barmode="group",
                 color_discrete_sequence=BLUES,labels={"Dia":"","Libres":"Salas libres","ML":"Módulo"})
-            dark_layout(fig4,360)
-            st.plotly_chart(fig4,use_container_width=True)
+            dark_layout(fig4,360); st.plotly_chart(fig4,use_container_width=True)
             tbl = p3.pivot(index="Dia",columns="ML",values="Libres").round(1)
             st.dataframe(tbl,use_container_width=True)
             p4 = fr2.groupby(["Dia","Modulo"])["Pct_Ocupacion"].mean().reset_index()
@@ -282,12 +218,11 @@ with tabs[1]:
             dark_layout(fig5,300); fig5.update_layout(yaxis_range=[0,105])
             st.plotly_chart(fig5,use_container_width=True)
 
-# ── TAB 3: CUPOS ──────────────────────────────────────────────────────────────
 with tabs[2]:
     if not fd.empty:
         ca,cb = st.columns(2)
-        with ca: sel3e = st.selectbox("Edificio",sel_ed if sel_ed else edificios_opts,key="ed3")
-        with cb: sel3d = st.selectbox("Día",sel_dias if sel_dias else DIAS_ORDER,key="dia3")
+        with ca: sel3e=st.selectbox("Edificio",sel_ed if sel_ed else edificios_opts,key="ed3")
+        with cb: sel3d=st.selectbox("Día",sel_dias if sel_dias else DIAS_ORDER,key="dia3")
         fd3 = fd[(fd["Ed_corto"]==sel3e)&(fd["Dia"]==sel3d)].copy()
         if not fd3.empty:
             def rng(c):
@@ -300,184 +235,164 @@ with tabs[2]:
             cnt = fd3.groupby(["Modulo","Rango"],observed=True).size().reset_index(name="Cant")
             cnt["ML"] = cnt["Modulo"].map(lambda x: MODULOS[x])
             fig6 = px.bar(cnt,x="ML",y="Cant",color="Rango",barmode="stack",
-                color_discrete_sequence=["#3fb950","#58a6ff","#d2a8ff","#ffa657","#f85149"],
+                color_discrete_sequence=[GREEN,CYAN,"#d2a8ff",ORANGE,RED],
                 category_orders={"Rango":RANGO_ORDER},labels={"ML":"","Cant":"Salas libres","Rango":"Cupo"})
-            dark_layout(fig6,360)
-            st.plotly_chart(fig6,use_container_width=True)
-            c1,c2 = st.columns(2)
+            dark_layout(fig6,360); st.plotly_chart(fig6,use_container_width=True)
+            c1,c2=st.columns(2)
             with c1:
-                tc = fd3.groupby(["Modulo","Tipo"]).size().reset_index(name="Cant")
-                tc["ML"] = tc["Modulo"].map(lambda x: MODULOS[x])
-                fig7 = px.bar(tc,x="ML",y="Cant",color="Tipo",barmode="group",
+                tc=fd3.groupby(["Modulo","Tipo"]).size().reset_index(name="Cant")
+                tc["ML"]=tc["Modulo"].map(lambda x: MODULOS[x])
+                fig7=px.bar(tc,x="ML",y="Cant",color="Tipo",barmode="group",
                     color_discrete_map={"SALA DE CLASES":CYAN,"LABORATORIO DE COMPUTACION":ORANGE})
-                dark_layout(fig7,280)
-                st.plotly_chart(fig7,use_container_width=True)
+                dark_layout(fig7,280); st.plotly_chart(fig7,use_container_width=True)
             with c2:
-                cm = fd3.groupby("Modulo")["Capacidad"].sum().reset_index()
-                cm["ML"] = cm["Modulo"].map(lambda x: MODULOS[x])
-                fig8 = px.bar(cm,x="ML",y="Capacidad",
-                    color="Capacidad",color_continuous_scale=[[0,"#1e3a5f"],[1,"#58a6ff"]])
+                cm=fd3.groupby("Modulo")["Capacidad"].sum().reset_index()
+                cm["ML"]=cm["Modulo"].map(lambda x: MODULOS[x])
+                fig8=px.bar(cm,x="ML",y="Capacidad",color="Capacidad",
+                    color_continuous_scale=[[0,"#1e3a5f"],[1,CYAN]])
                 dark_layout(fig8,280); fig8.update_layout(coloraxis_showscale=False)
                 st.plotly_chart(fig8,use_container_width=True)
 
-# ── TAB 4: FACULTADES ─────────────────────────────────────────────────────────
 with tabs[3]:
-    f1,f2,f3 = st.columns(3)
+    f1,f2,f3=st.columns(3)
     f1.metric("Total bloques usados",f"{df_fac['Bloques_sala'].sum():,}")
     f2.metric("Con exceso de cupo",int((df_fac['Secc_exceso_cupo']>0).sum()))
     f3.metric("Secciones totales",f"{df_fac['Secciones'].sum():,}")
-    fig_f1 = px.bar(df_fac.sort_values("Bloques_sala",ascending=True),x="Bloques_sala",y="Fac_corto",orientation="h",
-        color="Bloques_sala",color_continuous_scale=[[0,"#1e3a5f"],[1,"#58a6ff"]],text="Bloques_sala",
+    fig_f1=px.bar(df_fac.sort_values("Bloques_sala",ascending=True),x="Bloques_sala",y="Fac_corto",orientation="h",
+        color="Bloques_sala",color_continuous_scale=[[0,"#1e3a5f"],[1,CYAN]],text="Bloques_sala",
         labels={"Bloques_sala":"Bloques usados","Fac_corto":""})
-    fig_f1.update_traces(textposition="outside",textfont_color="#e6edf3")
+    fig_f1.update_traces(textposition="outside",textfont=dict(color="#ffffff",size=12))
     dark_layout(fig_f1,340); fig_f1.update_layout(coloraxis_showscale=False)
     st.plotly_chart(fig_f1,use_container_width=True)
-    c1,c2 = st.columns(2)
+    c1,c2=st.columns(2)
     with c1:
-        fig_f2 = px.pie(df_fac,values="Secciones",names="Fac_corto",color_discrete_sequence=MULTI)
-        dark_layout(fig_f2,300)
-        st.plotly_chart(fig_f2,use_container_width=True)
+        fig_f2=px.pie(df_fac,values="Secciones",names="Fac_corto",color_discrete_sequence=MULTI)
+        dark_layout(fig_f2,300); st.plotly_chart(fig_f2,use_container_width=True)
     with c2:
-        fig_f3 = px.scatter(df_fac,x="Cap_sala_prom",y="Cupo_prom",size="Secciones",color="Fac_corto",text="Fac_corto",
+        fig_f3=px.scatter(df_fac,x="Cap_sala_prom",y="Cupo_prom",size="Secciones",color="Fac_corto",text="Fac_corto",
             color_discrete_sequence=MULTI,labels={"Cap_sala_prom":"Cap. prom.","Cupo_prom":"Cupo prom."})
         fig_f3.add_shape(type="line",x0=0,y0=0,x1=60,y1=60,line=dict(color=RED,dash="dash",width=1.5))
-        fig_f3.update_traces(textposition="top center")
+        fig_f3.update_traces(textposition="top center",textfont=dict(color="#ffffff"))
         dark_layout(fig_f3,300); fig_f3.update_layout(showlegend=False)
         st.plotly_chart(fig_f3,use_container_width=True)
-    df_ft = df_fac[["Facultad","Secciones","Bloques_sala","Salas_distintas","Cupo_prom","Cap_sala_prom","Secc_exceso_cupo"]].copy()
-    df_ft.columns = ["Facultad","Secciones","Bloques sala","Salas distintas","Cupo prom","Cap. sala prom","Secc. exceso"]
+    df_ft=df_fac[["Facultad","Secciones","Bloques_sala","Salas_distintas","Cupo_prom","Cap_sala_prom","Secc_exceso_cupo"]].copy()
+    df_ft.columns=["Facultad","Secciones","Bloques sala","Salas distintas","Cupo prom","Cap. sala prom","Secc. exceso"]
     st.dataframe(df_ft.sort_values("Bloques sala",ascending=False),use_container_width=True,hide_index=True)
 
-# ── TAB 5: CARGA DOCENTE ──────────────────────────────────────────────────────
 with tabs[4]:
-    d1,d2,d3,d4 = st.columns(4)
-    d1.metric("Docentes",len(df_doc))
-    d2.metric("Horas prom./sem.",f"{df_doc['Horas_sem'].mean():.1f}")
-    d3.metric("Máx. horas/sem.",f"{df_doc['Horas_sem'].max():.1f}")
-    d4.metric("Con conflictos",int((df_doc['Conflictos_horario']>0).sum()))
-    col_d1,col_d2 = st.columns(2)
+    d1,d2,d3,d4=st.columns(4)
+    d1.metric("Docentes",len(df_doc)); d2.metric("Horas prom./sem.",f"{df_doc['Horas_sem'].mean():.1f}")
+    d3.metric("Máx. horas/sem.",f"{df_doc['Horas_sem'].max():.1f}"); d4.metric("Con conflictos",int((df_doc['Conflictos_horario']>0).sum()))
+    col_d1,col_d2=st.columns(2)
     with col_d1:
-        fig_d1 = px.histogram(df_doc,x="Horas_sem",nbins=30,color_discrete_sequence=[CYAN],
+        fig_d1=px.histogram(df_doc,x="Horas_sem",nbins=30,color_discrete_sequence=[CYAN],
             labels={"Horas_sem":"Horas semanales","count":"Docentes"})
-        dark_layout(fig_d1,300)
-        st.plotly_chart(fig_d1,use_container_width=True)
+        dark_layout(fig_d1,300); st.plotly_chart(fig_d1,use_container_width=True)
     with col_d2:
-        hf = df_doc.groupby("Fac_corto")["Horas_sem"].mean().reset_index().sort_values("Horas_sem",ascending=True)
-        fig_d2 = px.bar(hf,x="Horas_sem",y="Fac_corto",orientation="h",
+        hf=df_doc.groupby("Fac_corto")["Horas_sem"].mean().reset_index().sort_values("Horas_sem",ascending=True)
+        fig_d2=px.bar(hf,x="Horas_sem",y="Fac_corto",orientation="h",
             color="Horas_sem",color_continuous_scale=[[0,"#1a2f1a"],[1,GREEN]],text="Horas_sem",
             labels={"Horas_sem":"Horas prom.","Fac_corto":""})
-        fig_d2.update_traces(texttemplate="%{text:.1f}",textposition="outside",textfont_color="#e6edf3")
+        fig_d2.update_traces(texttemplate="%{text:.1f}",textposition="outside",textfont=dict(color="#ffffff",size=12))
         dark_layout(fig_d2,300); fig_d2.update_layout(coloraxis_showscale=False)
         st.plotly_chart(fig_d2,use_container_width=True)
     st.markdown("#### Top 20 docentes con mayor carga")
-    top_doc = df_doc.nlargest(20,"Horas_sem")[["RUT","Docente","Fac_corto","Nivel","Secciones","Horas_sem","Dias_activos","Conflictos_horario"]].copy()
-    top_doc.columns = ["RUT","Docente","Facultad","Nivel","Secciones","Horas sem.","Días activos","Conflictos"]
+    top_doc=df_doc.nlargest(20,"Horas_sem")[["RUT","Docente","Fac_corto","Nivel","Secciones","Horas_sem","Dias_activos","Conflictos_horario"]].copy()
+    top_doc.columns=["RUT","Docente","Facultad","Nivel","Secciones","Horas sem.","Días activos","Conflictos"]
     st.dataframe(top_doc,use_container_width=True,hide_index=True)
-    busq_doc = st.text_input("🔍 Buscar docente (nombre o RUT)",key="busq_doc")
+    busq_doc=st.text_input("🔍 Buscar docente (nombre o RUT)",key="busq_doc")
     if busq_doc:
-        res_doc = df_doc[df_doc["Docente"].str.contains(busq_doc,case=False,na=False)|df_doc["RUT"].astype(str).str.contains(busq_doc,na=False)]
+        res_doc=df_doc[df_doc["Docente"].str.contains(busq_doc,case=False,na=False)|df_doc["RUT"].astype(str).str.contains(busq_doc,na=False)]
         if not res_doc.empty:
-            sd = res_doc[["RUT","Docente","Fac_corto","Nivel","Secciones","Horas_sem","Dias_activos","Conflictos_horario"]].copy()
-            sd.columns = ["RUT","Docente","Facultad","Nivel","Secciones","Horas sem.","Días activos","Conflictos"]
+            sd=res_doc[["RUT","Docente","Fac_corto","Nivel","Secciones","Horas_sem","Dias_activos","Conflictos_horario"]].copy()
+            sd.columns=["RUT","Docente","Facultad","Nivel","Secciones","Horas sem.","Días activos","Conflictos"]
             st.dataframe(sd,use_container_width=True,hide_index=True)
         else: st.warning("No se encontró ningún docente.")
 
-# ── TAB 6: CONFLICTOS ─────────────────────────────────────────────────────────
 with tabs[5]:
-    cv1,cv2 = st.columns(2)
-    cv1.metric("Conflictos de docente",len(df_cd))
-    cv2.metric("Conflictos de sala",len(df_cs))
+    cv1,cv2=st.columns(2)
+    cv1.metric("Conflictos de docente",len(df_cd)); cv2.metric("Conflictos de sala",len(df_cs))
     st.markdown("#### Docentes con 2+ clases en el mismo bloque horario")
-    df_cd_s = df_cd[["RUT","Docente","Dia","Hora","N_clases","IDs_Asig","Asignaturas"]].copy()
-    df_cd_s.columns = ["RUT","Docente","Día","Hora","N° clases","IDs Asignatura","Asignaturas"]
+    df_cd_s=df_cd[["RUT","Docente","Dia","Hora","N_clases","IDs_Asig","Asignaturas"]].copy()
+    df_cd_s.columns=["RUT","Docente","Día","Hora","N° clases","IDs Asignatura","Asignaturas"]
     st.dataframe(df_cd_s,use_container_width=True,hide_index=True)
     st.download_button("⬇️ Descargar conflictos docente",df_cd_s.to_csv(index=False).encode(),"conflictos_docente.csv","text/csv")
     st.markdown("#### Salas con 2+ secciones en el mismo bloque horario")
-    df_cs_s = df_cs[["Sala","Dia","Hora","N_secciones","IDs_Asig","Asignaturas"]].copy()
-    df_cs_s.columns = ["Sala","Día","Hora","N° secciones","IDs Asignatura","Asignaturas"]
+    df_cs_s=df_cs[["Sala","Dia","Hora","N_secciones","IDs_Asig","Asignaturas"]].copy()
+    df_cs_s.columns=["Sala","Día","Hora","N° secciones","IDs Asignatura","Asignaturas"]
     st.dataframe(df_cs_s,use_container_width=True,hide_index=True)
     st.download_button("⬇️ Descargar conflictos sala",df_cs_s.to_csv(index=False).encode(),"conflictos_sala.csv","text/csv")
 
-# ── TAB 7: EFICIENCIA ─────────────────────────────────────────────────────────
 with tabs[6]:
-    e1,e2,e3 = st.columns(3)
-    total_reg = df_ef_fac["Registros"].sum()
-    muy_baja = df_ef_fac[df_ef_fac["Categoria_eficiencia"]=="Muy baja (<30%)"]["Registros"].sum()
-    exceso_ef = df_ef_fac[df_ef_fac["Categoria_eficiencia"]=="Óptima/Exceso (>90%)"]["Registros"].sum()
+    e1,e2,e3=st.columns(3)
+    total_reg=df_ef_fac["Registros"].sum()
+    muy_baja=df_ef_fac[df_ef_fac["Categoria_eficiencia"]=="Muy baja (<30%)"]["Registros"].sum()
+    exceso_ef=df_ef_fac[df_ef_fac["Categoria_eficiencia"]=="Óptima/Exceso (>90%)"]["Registros"].sum()
     e1.metric("Total registros",f"{total_reg:,}")
     e2.metric("Salas sobredimensionadas",f"{muy_baja} ({round(muy_baja/total_reg*100,1)}%)")
     e3.metric("Uso óptimo o exceso",f"{exceso_ef} ({round(exceso_ef/total_reg*100,1)}%)")
-    c1,c2 = st.columns(2)
+    c1,c2=st.columns(2)
     with c1:
-        cat_tot = df_ef_fac.groupby("Categoria_eficiencia")["Registros"].sum().reset_index()
-        fig_e1 = px.pie(cat_tot,values="Registros",names="Categoria_eficiencia",
-            color_discrete_sequence=[RED,"#e3b341","#f1c40f",GREEN,CYAN])
-        dark_layout(fig_e1,300)
-        st.plotly_chart(fig_e1,use_container_width=True)
+        cat_tot=df_ef_fac.groupby("Categoria_eficiencia")["Registros"].sum().reset_index()
+        fig_e1=px.pie(cat_tot,values="Registros",names="Categoria_eficiencia",
+            color_discrete_sequence=[RED,ORANGE,"#f1c40f",GREEN,CYAN])
+        dark_layout(fig_e1,300); st.plotly_chart(fig_e1,use_container_width=True)
     with c2:
-        ef_r = df_ef_fac.groupby("Fac_corto").apply(
+        ef_r=df_ef_fac.groupby("Fac_corto").apply(
             lambda x:(x["Registros"]*x["Ratio_prom"]).sum()/x["Registros"].sum()).reset_index()
-        ef_r.columns = ["Facultad","Ratio_prom"]
-        ef_r = ef_r.sort_values("Ratio_prom",ascending=True)
-        fig_e2 = px.bar(ef_r,x="Ratio_prom",y="Facultad",orientation="h",
+        ef_r.columns=["Facultad","Ratio_prom"]
+        ef_r=ef_r.sort_values("Ratio_prom",ascending=True)
+        fig_e2=px.bar(ef_r,x="Ratio_prom",y="Facultad",orientation="h",
             color="Ratio_prom",color_continuous_scale=[[0,"#1e3a5f"],[0.7,GREEN],[1,RED]],
             range_color=[0,120],text="Ratio_prom",labels={"Ratio_prom":"Ratio (%)","Facultad":""})
-        fig_e2.update_traces(texttemplate="%{text:.1f}%",textposition="outside",textfont_color="#e6edf3")
+        fig_e2.update_traces(texttemplate="%{text:.1f}%",textposition="outside",textfont=dict(color="#ffffff",size=12))
         fig_e2.add_vline(x=100,line_dash="dash",line_color=RED,line_width=1.5)
         dark_layout(fig_e2,300); fig_e2.update_layout(coloraxis_showscale=False,xaxis_range=[0,135])
         st.plotly_chart(fig_e2,use_container_width=True)
-    df_ef_ed["Categoria_eficiencia"] = pd.Categorical(df_ef_ed["Categoria_eficiencia"],categories=EFCAT_ORDER,ordered=True)
-    fig_e3 = px.bar(df_ef_ed.sort_values("Categoria_eficiencia"),x="Registros",y="EDIFICIO",color="Categoria_eficiencia",
-        orientation="h",barmode="stack",
-        color_discrete_sequence=[RED,ORANGE,"#f1c40f",GREEN,CYAN],
-        category_orders={"Categoria_eficiencia":EFCAT_ORDER},
-        labels={"Registros":"N° clases","EDIFICIO":""})
-    dark_layout(fig_e3,280)
-    st.plotly_chart(fig_e3,use_container_width=True)
+    df_ef_ed["Categoria_eficiencia"]=pd.Categorical(df_ef_ed["Categoria_eficiencia"],categories=EFCAT_ORDER,ordered=True)
+    fig_e3=px.bar(df_ef_ed.sort_values("Categoria_eficiencia"),x="Registros",y="EDIFICIO",color="Categoria_eficiencia",
+        orientation="h",barmode="stack",color_discrete_sequence=[RED,ORANGE,"#f1c40f",GREEN,CYAN],
+        category_orders={"Categoria_eficiencia":EFCAT_ORDER},labels={"Registros":"N° clases","EDIFICIO":""})
+    dark_layout(fig_e3,280); st.plotly_chart(fig_e3,use_container_width=True)
     st.markdown("#### Casos críticos")
-    ef_d = df_ef_det.copy()
-    ef_d["Edificio"] = ef_d["EDIFICIO"].map(ED_SHORT).fillna(ef_d["EDIFICIO"])
-    ef_d["Facultad"] = ef_d["FACULTAD"].map(FAC_SHORT).fillna(ef_d["FACULTAD"])
-    cat_filter = st.multiselect("Filtrar categoría",EFCAT_ORDER,default=["Muy baja (<30%)","Óptima/Exceso (>90%)"])
-    ef_show = ef_d[["ID_ASIG","ASIGNATURA","SECCION","TIPO","Facultad","LUGAR","Edificio","CUPO","CAPACIDAD","Ratio_uso","Categoria_eficiencia"]].copy()
-    ef_show.columns = ["ID Asig.","Asignatura","Secc.","Tipo","Facultad","Sala","Edificio","Cupo","Cap.","Ratio %","Categoría"]
-    ef_f = ef_show[ef_show["Categoría"].isin(cat_filter)] if cat_filter else ef_show
+    ef_d=df_ef_det.copy()
+    ef_d["Edificio"]=ef_d["EDIFICIO"].map(ED_SHORT).fillna(ef_d["EDIFICIO"])
+    ef_d["Facultad"]=ef_d["FACULTAD"].map(FAC_SHORT).fillna(ef_d["FACULTAD"])
+    cat_filter=st.multiselect("Filtrar categoría",EFCAT_ORDER,default=["Muy baja (<30%)","Óptima/Exceso (>90%)"])
+    ef_show=ef_d[["ID_ASIG","ASIGNATURA","SECCION","TIPO","Facultad","LUGAR","Edificio","CUPO","CAPACIDAD","Ratio_uso","Categoria_eficiencia"]].copy()
+    ef_show.columns=["ID Asig.","Asignatura","Secc.","Tipo","Facultad","Sala","Edificio","Cupo","Cap.","Ratio %","Categoría"]
+    ef_f=ef_show[ef_show["Categoría"].isin(cat_filter)] if cat_filter else ef_show
     st.dataframe(ef_f,use_container_width=True,hide_index=True)
     st.download_button("⬇️ Descargar",ef_f.to_csv(index=False).encode(),"eficiencia_critica.csv","text/csv")
 
-# ── TAB 8: CONCENTRACIÓN ──────────────────────────────────────────────────────
 with tabs[7]:
-    c1,c2 = st.columns(2)
+    c1,c2=st.columns(2)
     with c1:
-        df_cm_p = df_cm.dropna(subset=["MODULO"]).copy()
-        df_cm_p["ML"] = df_cm_p["MODULO"].astype(int).map(MODULOS)
-        fig_h1 = px.bar(df_cm_p,x="ML",y="Clases",
-            color="Clases",color_continuous_scale=[[0,"#1e3a5f"],[1,CYAN]],text="Clases",
-            labels={"ML":"","Clases":"N° clases"})
-        fig_h1.update_traces(textposition="outside",textfont_color="#e6edf3")
+        df_cm_p=df_cm.dropna(subset=["MODULO"]).copy()
+        df_cm_p["ML"]=df_cm_p["MODULO"].astype(int).map(MODULOS)
+        fig_h1=px.bar(df_cm_p,x="ML",y="Clases",color="Clases",
+            color_continuous_scale=[[0,"#1e3a5f"],[1,CYAN]],text="Clases",labels={"ML":"","Clases":"N° clases"})
+        fig_h1.update_traces(textposition="outside",textfont=dict(color="#ffffff",size=12))
         dark_layout(fig_h1,300); fig_h1.update_layout(coloraxis_showscale=False)
         st.plotly_chart(fig_h1,use_container_width=True)
     with c2:
-        fig_h2 = px.bar(df_ct,x="Clases",y="Fac_corto",color="TURNO",orientation="h",barmode="stack",
+        fig_h2=px.bar(df_ct,x="Clases",y="Fac_corto",color="TURNO",orientation="h",barmode="stack",
             color_discrete_map={"Diurno":CYAN,"Vespertino":ORANGE},
             labels={"Clases":"N° clases","Fac_corto":"","TURNO":"Turno"})
-        dark_layout(fig_h2,300)
-        st.plotly_chart(fig_h2,use_container_width=True)
-    df_cfm_p = df_cfm.dropna(subset=["MODULO"]).copy()
-    df_cfm_p["ML"] = df_cfm_p["MODULO"].astype(int).map(MODULOS)
-    fig_h3 = px.bar(df_cfm_p,x="ML",y="Clases",color="Fac_corto",barmode="group",
+        dark_layout(fig_h2,300); st.plotly_chart(fig_h2,use_container_width=True)
+    df_cfm_p=df_cfm.dropna(subset=["MODULO"]).copy()
+    df_cfm_p["ML"]=df_cfm_p["MODULO"].astype(int).map(MODULOS)
+    fig_h3=px.bar(df_cfm_p,x="ML",y="Clases",color="Fac_corto",barmode="group",
         color_discrete_sequence=MULTI,labels={"ML":"","Clases":"N° clases","Fac_corto":"Facultad"})
-    dark_layout(fig_h3,360)
-    st.plotly_chart(fig_h3,use_container_width=True)
-    hm2 = df_cfm_p.pivot_table(index="Fac_corto",columns="ML",values="Clases",fill_value=0)
-    fig_h4 = px.imshow(hm2,text_auto=True,
-        color_continuous_scale=[[0,PLOT_BG],[0.3,"#1e3a5f"],[1,CYAN]],aspect="auto")
+    dark_layout(fig_h3,360); st.plotly_chart(fig_h3,use_container_width=True)
+    hm2=df_cfm_p.pivot_table(index="Fac_corto",columns="ML",values="Clases",fill_value=0)
+    fig_h4=px.imshow(hm2,text_auto=True,color_continuous_scale=[[0,PLOT_BG],[0.3,"#1e3a5f"],[1,CYAN]],aspect="auto")
+    fig_h4.update_traces(textfont=dict(color="#ffffff",size=11))
     fig_h4.update_xaxes(tickangle=-20); dark_layout(fig_h4,300)
     st.plotly_chart(fig_h4,use_container_width=True)
 
-# ── TAB 9: RESERVAS ───────────────────────────────────────────────────────────
 with tabs[8]:
-    r1,r2,r3,r4 = st.columns(4)
+    r1,r2,r3,r4=st.columns(4)
     with r1:
         ed_rv=["Todos"]+sorted(df_rev["Edificio"].dropna().unique().tolist())
         sel_er=st.selectbox("Edificio",ed_rv,key="ed_rev")
@@ -506,7 +421,7 @@ with tabs[8]:
         ce=frv["Edificio"].value_counts().reset_index(); ce.columns=["Edificio","Reservas"]
         fig_r1=px.bar(ce,x="Edificio",y="Reservas",color="Reservas",
             color_continuous_scale=[[0,"#1e3a5f"],[1,CYAN]],text="Reservas")
-        fig_r1.update_traces(textposition="outside",textfont_color="#e6edf3")
+        fig_r1.update_traces(textposition="outside",textfont=dict(color="#ffffff",size=12))
         dark_layout(fig_r1,280); fig_r1.update_layout(coloraxis_showscale=False)
         st.plotly_chart(fig_r1,use_container_width=True)
     with c2:
@@ -514,18 +429,16 @@ with tabs[8]:
         cd.columns=["Dia","Reservas"]
         fig_r2=px.bar(cd,x="Dia",y="Reservas",color="Reservas",
             color_continuous_scale=[[0,"#1a1a3f"],[1,"#d2a8ff"]],text="Reservas")
-        fig_r2.update_traces(textposition="outside",textfont_color="#e6edf3")
+        fig_r2.update_traces(textposition="outside",textfont=dict(color="#ffffff",size=12))
         dark_layout(fig_r2,280); fig_r2.update_layout(coloraxis_showscale=False)
         st.plotly_chart(fig_r2,use_container_width=True)
     ts=frv.groupby(["Sala","Edificio"]).size().reset_index(name="Reservas").sort_values("Reservas",ascending=False).head(15)
     fig_r3=px.bar(ts,x="Reservas",y="Sala",orientation="h",color="Edificio",color_discrete_sequence=MULTI)
-    dark_layout(fig_r3,400)
-    st.plotly_chart(fig_r3,use_container_width=True)
+    dark_layout(fig_r3,400); st.plotly_chart(fig_r3,use_container_width=True)
     cs=["Sala","Edificio","Dia","Fecha_Inicio","Fecha_Fin","Hora_Ini","Hora_Fin","Turno","Periodo","Motivo"]
     st.dataframe(frv[cs].reset_index(drop=True),use_container_width=True,hide_index=True)
     st.download_button("⬇️ Descargar reservas",frv[cs].to_csv(index=False).encode(),"reservas.csv","text/csv")
 
-# ── TAB 10: DETALLE SALAS ─────────────────────────────────────────────────────
 with tabs[9]:
     c1,c2,c3=st.columns(3)
     with c1: sel4e=st.selectbox("Edificio",sel_ed if sel_ed else edificios_opts,key="ed4")
