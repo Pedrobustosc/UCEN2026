@@ -8,16 +8,21 @@ st.set_page_config(page_title="Salas UCEN 2026-02", layout="wide", page_icon="�
 
 st.markdown("""
 <style>
-  /* ── BACKGROUNDS ── */
-  [data-testid="stAppViewContainer"],
+  /* ── FORCE DARK ON ALL ROOT ELEMENTS ── */
+  html, body {{ background-color: #0d1117 !important; }}
+  [data-testid="stApp"] {{ background-color: #0d1117 !important; }}
+  [data-testid="stAppViewContainer"] {{ background-color: #0d1117 !important; }}
   [data-testid="stAppViewContainer"] > .main {{ background-color: #0d1117 !important; }}
-  [data-testid="stSidebar"] {{ background-color: #161b22 !important; border-right: 1px solid #30363d; }}
-  [data-testid="stHeader"] {{ background-color: #0d1117 !important; }}
+  .main .block-container {{ background-color: #0d1117 !important; padding-top: 1rem; }}
+  [data-testid="stSidebar"] {{ background-color: #161b22 !important; border-right: 1px solid #30363d !important; }}
+  [data-testid="stHeader"] {{ background-color: #0d1117 !important; border-bottom: 1px solid #30363d !important; }}
+  footer {{ display: none !important; }}
 
   /* ── ALL TEXT WHITE ── */
-  *, p, span, label, div, li, td, th, h1, h2, h3, h4, h5, h6,
-  [data-testid="stMarkdownContainer"] *,
+  html, body, * {{ color: #ffffff !important; }}
   [data-testid="stSidebar"] * {{ color: #ffffff !important; }}
+  [data-testid="stMarkdownContainer"] * {{ color: #ffffff !important; }}
+  .stMarkdown * {{ color: #ffffff !important; }}
 
   /* ── METRIC CARDS ── */
   [data-testid="metric-container"] {{
@@ -31,44 +36,46 @@ st.markdown("""
   [data-testid="metric-container"] [data-testid="stMetricDelta"] {{ color: #3fb950 !important; font-size: 13px !important; }}
 
   /* ── TABS ── */
-  [data-testid="stTabs"] button {{ color: #c9d1d9 !important; border-bottom: 2px solid transparent !important; font-size: 13px !important; background: transparent !important; }}
+  [data-testid="stTabs"] {{ background-color: transparent !important; }}
+  [data-testid="stTabs"] button {{ color: #c9d1d9 !important; background: transparent !important; border-bottom: 2px solid transparent !important; font-size: 13px !important; }}
   [data-testid="stTabs"] button[aria-selected="true"] {{ color: #ffffff !important; border-bottom: 2px solid #58a6ff !important; font-weight: 600 !important; }}
   [data-testid="stTabs"] button:hover {{ color: #ffffff !important; }}
+  [data-testid="stTabContent"] {{ background-color: #0d1117 !important; }}
 
   /* ── SELECTBOX ── */
   [data-testid="stSelectbox"] > div > div {{
     background-color: #1c2128 !important;
     border: 1px solid #444c56 !important;
     border-radius: 6px !important;
-    color: #ffffff !important;
   }}
-  [data-testid="stSelectbox"] > div > div > div {{ color: #ffffff !important; }}
+  [data-testid="stSelectbox"] * {{ color: #ffffff !important; }}
   [data-testid="stSelectbox"] svg {{ fill: #ffffff !important; }}
-
-  /* ── SELECTBOX DROPDOWN LIST ── */
-  [data-baseweb="popover"] {{ background-color: #1c2128 !important; border: 1px solid #444c56 !important; }}
-  [data-baseweb="menu"] {{ background-color: #1c2128 !important; }}
-  [data-baseweb="menu"] li {{ background-color: #1c2128 !important; color: #ffffff !important; }}
-  [data-baseweb="menu"] li:hover {{ background-color: #2d333b !important; color: #ffffff !important; }}
-  [data-baseweb="menu"] [aria-selected="true"] {{ background-color: #2d333b !important; color: #58a6ff !important; }}
-  [data-baseweb="select"] * {{ color: #ffffff !important; background-color: transparent !important; }}
-  [data-baseweb="select"] > div {{ background-color: #1c2128 !important; border-color: #444c56 !important; }}
 
   /* ── MULTISELECT ── */
   [data-testid="stMultiSelect"] > div > div {{
     background-color: #1c2128 !important;
     border: 1px solid #444c56 !important;
     border-radius: 6px !important;
-    color: #ffffff !important;
   }}
-  [data-testid="stMultiSelect"] span {{ color: #ffffff !important; }}
+  [data-testid="stMultiSelect"] * {{ color: #ffffff !important; }}
   [data-testid="stMultiSelect"] [data-baseweb="tag"] {{
     background-color: #2d333b !important;
     border: 1px solid #444c56 !important;
-    color: #ffffff !important;
   }}
-  [data-testid="stMultiSelect"] [data-baseweb="tag"] span {{ color: #ffffff !important; }}
   [data-testid="stMultiSelect"] svg {{ fill: #ffffff !important; }}
+
+  /* ── DROPDOWN POPUP (baseweb) ── */
+  [data-baseweb="popover"] * {{ background-color: #1c2128 !important; color: #ffffff !important; }}
+  [data-baseweb="menu"] {{ background-color: #1c2128 !important; border: 1px solid #444c56 !important; }}
+  [data-baseweb="menu"] li {{ background-color: #1c2128 !important; color: #ffffff !important; }}
+  [data-baseweb="menu"] li:hover {{ background-color: #2d333b !important; }}
+  [data-baseweb="option"] {{ background-color: #1c2128 !important; color: #ffffff !important; }}
+  [data-baseweb="option"]:hover {{ background-color: #2d333b !important; }}
+  [data-baseweb="select"] > div {{ background-color: #1c2128 !important; border-color: #444c56 !important; }}
+  [data-baseweb="select"] * {{ color: #ffffff !important; }}
+  ul[role="listbox"] {{ background-color: #1c2128 !important; }}
+  ul[role="listbox"] li {{ color: #ffffff !important; background-color: #1c2128 !important; }}
+  ul[role="listbox"] li:hover {{ background-color: #2d333b !important; }}
 
   /* ── TEXT INPUT ── */
   [data-testid="stTextInput"] input {{
@@ -78,20 +85,17 @@ st.markdown("""
     color: #ffffff !important;
   }}
   [data-testid="stTextInput"] input::placeholder {{ color: #768390 !important; }}
-  [data-testid="stTextInput"] input:focus {{ border-color: #58a6ff !important; box-shadow: 0 0 0 2px rgba(88,166,255,0.2) !important; }}
+  [data-testid="stTextInput"] input:focus {{ border-color: #58a6ff !important; }}
 
   /* ── SLIDER ── */
   [data-testid="stSlider"] * {{ color: #ffffff !important; }}
-  [data-testid="stSlider"] [data-baseweb="slider"] div {{ background-color: #444c56 !important; }}
 
   /* ── DATAFRAME ── */
-  [data-testid="stDataFrame"] {{ border: 1px solid #30363d !important; border-radius: 8px !important; }}
-  [data-testid="stDataFrame"] * {{ color: #ffffff !important; background-color: transparent !important; }}
-  [data-testid="stDataFrame"] th {{ background-color: #1c2128 !important; color: #c9d1d9 !important; font-weight: 600 !important; }}
-  [data-testid="stDataFrame"] td {{ color: #ffffff !important; }}
+  [data-testid="stDataFrame"] {{ border: 1px solid #30363d !important; border-radius: 8px !important; overflow: hidden; }}
+  [data-testid="stDataFrame"] * {{ color: #ffffff !important; }}
   iframe {{ color-scheme: dark !important; }}
 
-  /* ── BUTTONS ── */
+  /* ── DOWNLOAD BUTTON ── */
   [data-testid="stDownloadButton"] button {{
     background-color: #1c2128 !important;
     border: 1px solid #444c56 !important;
@@ -102,7 +106,6 @@ st.markdown("""
   [data-testid="stDownloadButton"] button:hover {{ border-color: #58a6ff !important; background-color: #2d333b !important; }}
 
   /* ── ALERTS ── */
-  [data-testid="stAlert"] {{ border-radius: 8px !important; }}
   [data-testid="stAlert"] * {{ color: #ffffff !important; }}
 
   /* ── DIVIDER ── */
@@ -110,12 +113,6 @@ st.markdown("""
 
   /* ── CAPTION ── */
   [data-testid="stCaptionContainer"] * {{ color: #c9d1d9 !important; }}
-
-  /* ── OPTION MENU GLOBAL FIX ── */
-  ul[data-testid="stSelectboxOptions"] {{ background-color: #1c2128 !important; }}
-  ul[data-testid="stSelectboxOptions"] li {{ color: #ffffff !important; background-color: #1c2128 !important; }}
-  ul[data-testid="stSelectboxOptions"] li:hover {{ background-color: #2d333b !important; color: #ffffff !important; }}
-  ul[data-testid="stSelectboxOptions"] li[aria-selected="true"] {{ background-color: #2d333b !important; color: #58a6ff !important; }}
 </style>
 """, unsafe_allow_html=True)
 
