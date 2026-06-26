@@ -8,34 +8,114 @@ st.set_page_config(page_title="Salas UCEN 2026-02", layout="wide", page_icon="�
 
 st.markdown("""
 <style>
-  [data-testid="stAppViewContainer"] { background-color: #0d1117; color: #ffffff; }
-  [data-testid="stSidebar"] { background-color: #161b22; border-right: 1px solid #30363d; }
-  [data-testid="stSidebar"] * { color: #ffffff !important; }
-  [data-testid="stHeader"] { background-color: #0d1117; }
-  section[data-testid="stMain"] * { color: #ffffff; }
-  p, span, label, div { color: #ffffff !important; }
-  h1 { color: #ffffff !important; font-size: 26px !important; }
-  h2, h3, h4 { color: #ffffff !important; }
-  [data-testid="stCaptionContainer"] { color: #c9d1d9 !important; }
-  [data-testid="metric-container"] {
-    background: #161b22; border: 1px solid #30363d;
-    border-radius: 10px; padding: 12px 16px;
-  }
-  [data-testid="metric-container"] label { color: #c9d1d9 !important; font-size: 12px !important; }
-  [data-testid="metric-container"] [data-testid="stMetricValue"] { color: #58a6ff !important; font-size: 26px !important; font-weight: 600; }
-  [data-testid="metric-container"] [data-testid="stMetricDelta"] { color: #3fb950 !important; font-size: 13px !important; }
-  [data-testid="stTabs"] button { color: #c9d1d9 !important; border-bottom: 2px solid transparent; font-size: 13px; }
-  [data-testid="stTabs"] button[aria-selected="true"] { color: #ffffff !important; border-bottom: 2px solid #58a6ff !important; font-weight: 600; }
-  [data-testid="stDataFrame"] { border: 1px solid #30363d; border-radius: 8px; }
-  [data-testid="stDataFrame"] * { color: #ffffff !important; }
-  [data-testid="stSelectbox"] > div > div { background: #161b22 !important; border-color: #30363d !important; color: #ffffff !important; }
-  [data-testid="stMultiSelect"] > div > div { background: #161b22 !important; border-color: #30363d !important; color: #ffffff !important; }
-  [data-testid="stTextInput"] input { background: #161b22 !important; border-color: #30363d !important; color: #ffffff !important; }
-  [data-testid="stDownloadButton"] button { background: #161b22 !important; border: 1px solid #30363d !important; color: #58a6ff !important; border-radius: 6px; }
-  [data-testid="stDownloadButton"] button:hover { border-color: #58a6ff !important; }
-  hr { border-color: #30363d; }
-  [data-testid="stMarkdownContainer"] p { color: #ffffff !important; }
-  [data-testid="stMarkdownContainer"] li { color: #ffffff !important; }
+  /* ── BACKGROUNDS ── */
+  [data-testid="stAppViewContainer"],
+  [data-testid="stAppViewContainer"] > .main {{ background-color: #0d1117 !important; }}
+  [data-testid="stSidebar"] {{ background-color: #161b22 !important; border-right: 1px solid #30363d; }}
+  [data-testid="stHeader"] {{ background-color: #0d1117 !important; }}
+
+  /* ── ALL TEXT WHITE ── */
+  *, p, span, label, div, li, td, th, h1, h2, h3, h4, h5, h6,
+  [data-testid="stMarkdownContainer"] *,
+  [data-testid="stSidebar"] * {{ color: #ffffff !important; }}
+
+  /* ── METRIC CARDS ── */
+  [data-testid="metric-container"] {{
+    background: #161b22 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 10px !important;
+    padding: 12px 16px !important;
+  }}
+  [data-testid="metric-container"] label {{ color: #c9d1d9 !important; font-size: 12px !important; }}
+  [data-testid="metric-container"] [data-testid="stMetricValue"] {{ color: #58a6ff !important; font-size: 26px !important; font-weight: 600 !important; }}
+  [data-testid="metric-container"] [data-testid="stMetricDelta"] {{ color: #3fb950 !important; font-size: 13px !important; }}
+
+  /* ── TABS ── */
+  [data-testid="stTabs"] button {{ color: #c9d1d9 !important; border-bottom: 2px solid transparent !important; font-size: 13px !important; background: transparent !important; }}
+  [data-testid="stTabs"] button[aria-selected="true"] {{ color: #ffffff !important; border-bottom: 2px solid #58a6ff !important; font-weight: 600 !important; }}
+  [data-testid="stTabs"] button:hover {{ color: #ffffff !important; }}
+
+  /* ── SELECTBOX ── */
+  [data-testid="stSelectbox"] > div > div {{
+    background-color: #1c2128 !important;
+    border: 1px solid #444c56 !important;
+    border-radius: 6px !important;
+    color: #ffffff !important;
+  }}
+  [data-testid="stSelectbox"] > div > div > div {{ color: #ffffff !important; }}
+  [data-testid="stSelectbox"] svg {{ fill: #ffffff !important; }}
+
+  /* ── SELECTBOX DROPDOWN LIST ── */
+  [data-baseweb="popover"] {{ background-color: #1c2128 !important; border: 1px solid #444c56 !important; }}
+  [data-baseweb="menu"] {{ background-color: #1c2128 !important; }}
+  [data-baseweb="menu"] li {{ background-color: #1c2128 !important; color: #ffffff !important; }}
+  [data-baseweb="menu"] li:hover {{ background-color: #2d333b !important; color: #ffffff !important; }}
+  [data-baseweb="menu"] [aria-selected="true"] {{ background-color: #2d333b !important; color: #58a6ff !important; }}
+  [data-baseweb="select"] * {{ color: #ffffff !important; background-color: transparent !important; }}
+  [data-baseweb="select"] > div {{ background-color: #1c2128 !important; border-color: #444c56 !important; }}
+
+  /* ── MULTISELECT ── */
+  [data-testid="stMultiSelect"] > div > div {{
+    background-color: #1c2128 !important;
+    border: 1px solid #444c56 !important;
+    border-radius: 6px !important;
+    color: #ffffff !important;
+  }}
+  [data-testid="stMultiSelect"] span {{ color: #ffffff !important; }}
+  [data-testid="stMultiSelect"] [data-baseweb="tag"] {{
+    background-color: #2d333b !important;
+    border: 1px solid #444c56 !important;
+    color: #ffffff !important;
+  }}
+  [data-testid="stMultiSelect"] [data-baseweb="tag"] span {{ color: #ffffff !important; }}
+  [data-testid="stMultiSelect"] svg {{ fill: #ffffff !important; }}
+
+  /* ── TEXT INPUT ── */
+  [data-testid="stTextInput"] input {{
+    background-color: #1c2128 !important;
+    border: 1px solid #444c56 !important;
+    border-radius: 6px !important;
+    color: #ffffff !important;
+  }}
+  [data-testid="stTextInput"] input::placeholder {{ color: #768390 !important; }}
+  [data-testid="stTextInput"] input:focus {{ border-color: #58a6ff !important; box-shadow: 0 0 0 2px rgba(88,166,255,0.2) !important; }}
+
+  /* ── SLIDER ── */
+  [data-testid="stSlider"] * {{ color: #ffffff !important; }}
+  [data-testid="stSlider"] [data-baseweb="slider"] div {{ background-color: #444c56 !important; }}
+
+  /* ── DATAFRAME ── */
+  [data-testid="stDataFrame"] {{ border: 1px solid #30363d !important; border-radius: 8px !important; }}
+  [data-testid="stDataFrame"] * {{ color: #ffffff !important; background-color: transparent !important; }}
+  [data-testid="stDataFrame"] th {{ background-color: #1c2128 !important; color: #c9d1d9 !important; font-weight: 600 !important; }}
+  [data-testid="stDataFrame"] td {{ color: #ffffff !important; }}
+  iframe {{ color-scheme: dark !important; }}
+
+  /* ── BUTTONS ── */
+  [data-testid="stDownloadButton"] button {{
+    background-color: #1c2128 !important;
+    border: 1px solid #444c56 !important;
+    color: #58a6ff !important;
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+  }}
+  [data-testid="stDownloadButton"] button:hover {{ border-color: #58a6ff !important; background-color: #2d333b !important; }}
+
+  /* ── ALERTS ── */
+  [data-testid="stAlert"] {{ border-radius: 8px !important; }}
+  [data-testid="stAlert"] * {{ color: #ffffff !important; }}
+
+  /* ── DIVIDER ── */
+  hr {{ border-color: #30363d !important; }}
+
+  /* ── CAPTION ── */
+  [data-testid="stCaptionContainer"] * {{ color: #c9d1d9 !important; }}
+
+  /* ── OPTION MENU GLOBAL FIX ── */
+  ul[data-testid="stSelectboxOptions"] {{ background-color: #1c2128 !important; }}
+  ul[data-testid="stSelectboxOptions"] li {{ color: #ffffff !important; background-color: #1c2128 !important; }}
+  ul[data-testid="stSelectboxOptions"] li:hover {{ background-color: #2d333b !important; color: #ffffff !important; }}
+  ul[data-testid="stSelectboxOptions"] li[aria-selected="true"] {{ background-color: #2d333b !important; color: #58a6ff !important; }}
 </style>
 """, unsafe_allow_html=True)
 
