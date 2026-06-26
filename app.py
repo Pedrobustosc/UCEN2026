@@ -92,10 +92,7 @@ def fac_c(df,col="Facultad"):
     df[col+"_c"]=df[col].map(FAC_SHORT).fillna(df[col]); return df
 
 def to_xlsx(df):
-    buf=io.BytesIO()
-    with pd.ExcelWriter(buf,engine="openpyxl") as w:
-        df.to_excel(w,index=False,sheet_name="Datos")
-    return buf.getvalue()
+    return df.to_csv(index=False).encode("utf-8")
 
 
 b = {
@@ -396,7 +393,7 @@ with tabs[3]:
     df_ft=df_fac[["Facultad","Secciones","Bloques_sala","Salas_distintas","Cupo_prom","Cap_sala_prom","Secc_exceso_cupo"]].copy()
     df_ft.columns=["Facultad","Secciones","Bloques sala","Salas distintas","Cupo prom","Cap. sala prom","Secc. exceso"]
     st.dataframe(df_ft.sort_values("Bloques sala",ascending=False),use_container_width=True,hide_index=True)
-    st.download_button("⬇️ Descargar Excel",to_xlsx(df_ft),"facultades.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("⬇️ Descargar Excel",to_xlsx(df_ft),"facultades.csv","text/csv")
 
 # ── TAB 5: CARGA DOCENTE ─────────────────────────────────────────────────────
 with tabs[4]:
@@ -424,7 +421,7 @@ with tabs[4]:
     top_doc=df_doc.nlargest(20,"Horas_sem")[["RUT","Docente","Fac_corto","Nivel","Secciones","Horas_sem","Dias_activos","Conflictos_horario"]].copy()
     top_doc.columns=["RUT","Docente","Facultad","Nivel","Secciones","Horas sem.","Días activos","Conflictos"]
     st.dataframe(top_doc,use_container_width=True,hide_index=True)
-    st.download_button("⬇️ Descargar Excel",to_xlsx(top_doc),"top_docentes.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("⬇️ Descargar Excel",to_xlsx(top_doc),"top_docentes.csv","text/csv")
     busq_doc=st.text_input("🔍 Buscar docente (nombre o RUT)",key="busq_doc")
     if busq_doc:
         res_doc=df_doc[df_doc["Docente"].str.contains(busq_doc,case=False,na=False)|df_doc["RUT"].astype(str).str.contains(busq_doc,na=False)]
@@ -472,7 +469,7 @@ with tabs[5]:
         show_c.columns=["ID Asig.","Asignatura","Secc.","Tipo","Facultad","Sala","Edificio","Cupo","Estado"]
         st.info(f"Mostrando {len(show_c)} secciones pendientes")
         st.dataframe(show_c,use_container_width=True,hide_index=True)
-        st.download_button("⬇️ Descargar Excel",to_xlsx(show_c),"sin_docente.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button("⬇️ Descargar Excel",to_xlsx(show_c),"sin_docente.csv","text/csv")
 
 # ── TAB 7: PRÓXIMAS ──────────────────────────────────────────────────────────
 with tabs[6]:
@@ -505,7 +502,7 @@ with tabs[6]:
         sd_show=sin_doc[["ID_ASIG","ASIGNATURA","SECCION","TIPO","Fac_corto","LUGAR","EDIFICIO","FECHA_STR","DIAS","CUPO"]].copy()
         sd_show.columns=["ID Asig.","Asignatura","Secc.","Tipo","Facultad","Sala","Edificio","Fecha inicio","Días restantes","Cupo"]
         st.dataframe(sd_show.sort_values("Días restantes"),use_container_width=True,hide_index=True)
-        st.download_button("⬇️ Descargar Excel",to_xlsx(sd_show),"alertas_sin_docente.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button("⬇️ Descargar Excel",to_xlsx(sd_show),"alertas_sin_docente.csv","text/csv")
     else:
         st.success("✅ Todas las secciones próximas a iniciar tienen docente asignado.")
 
@@ -520,12 +517,12 @@ with tabs[7]:
     df_cd_s=df_cd[["RUT","Docente","Dia","Hora","N_clases","IDs_Asig","Asignaturas"]].copy()
     df_cd_s.columns=["RUT","Docente","Día","Hora","N° clases","IDs Asig.","Asignaturas"]
     st.dataframe(df_cd_s,use_container_width=True,hide_index=True)
-    st.download_button("⬇️ Descargar Excel",to_xlsx(df_cd_s),"conflictos_docente.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("⬇️ Descargar Excel",to_xlsx(df_cd_s),"conflictos_docente.csv","text/csv")
     st.markdown("#### Salas con 2+ secciones en el mismo bloque")
     df_cs_s=df_cs[["Sala","Dia","Hora","N_secciones","IDs_Asig","Asignaturas"]].copy()
     df_cs_s.columns=["Sala","Día","Hora","N° secciones","IDs Asig.","Asignaturas"]
     st.dataframe(df_cs_s,use_container_width=True,hide_index=True)
-    st.download_button("⬇️ Descargar Excel",to_xlsx(df_cs_s),"conflictos_sala.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("⬇️ Descargar Excel",to_xlsx(df_cs_s),"conflictos_sala.csv","text/csv")
 
 # ── TAB 9: EFICIENCIA ────────────────────────────────────────────────────────
 with tabs[8]:
@@ -603,7 +600,7 @@ with tabs[8]:
         if cat_f: ef_show=ef_show[ef_show["Categoría"].isin(cat_f)]
         if fac_ef2: ef_show=ef_show[ef_show["Facultad"].isin(fac_ef2)]
         st.dataframe(ef_show,use_container_width=True,hide_index=True)
-        st.download_button("⬇️ Descargar Excel",to_xlsx(ef_show),"eficiencia_critica.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button("⬇️ Descargar Excel",to_xlsx(ef_show),"eficiencia_critica.csv","text/csv")
 
         # OPTIMIZACIÓN
         st.markdown("---")
@@ -621,7 +618,7 @@ with tabs[8]:
             df_opt_disp=df_opt_disp.rename(columns={k:v for k,v in rename_map.items() if k in df_opt_disp.columns})
             st.info(f"{len(df_opt_disp)} sugerencias de optimización")
             st.dataframe(df_opt_disp,use_container_width=True,hide_index=True)
-            st.download_button("⬇️ Descargar Excel",to_xlsx(df_opt_disp),"optimizacion_salas.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button("⬇️ Descargar Excel",to_xlsx(df_opt_disp),"optimizacion_salas.csv","text/csv")
         else:
             st.info("No hay sugerencias de optimización disponibles para este período.")
 
@@ -703,7 +700,7 @@ with tabs[10]:
     leg("<b>Top 15 salas más reservadas:</b> salas con mayor demanda puntual. Una sala muy reservada puede generar conflictos con la planificación regular si no se coordinó el uso previamente.")
     cs=["Sala","Edificio","Dia","Fecha_Inicio","Fecha_Fin","Hora_Ini","Hora_Fin","Turno","Periodo","Motivo"]
     st.dataframe(frv[cs].reset_index(drop=True),use_container_width=True,hide_index=True)
-    st.download_button("⬇️ Descargar Excel",to_xlsx(frv[cs]),"reservas.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("⬇️ Descargar Excel",to_xlsx(frv[cs]),"reservas.csv","text/csv")
 
 # ── TAB 12: DETALLE SALAS ────────────────────────────────────────────────────
 with tabs[11]:
@@ -719,6 +716,6 @@ with tabs[11]:
         st.success(f"✅ {len(fd4)} salas disponibles · {sel4e} · {sel4d} · {MODULOS_FULL[sel4m]}")
         st.dataframe(fd4,use_container_width=True,hide_index=True)
         leg("<b>Cómo usar esta tabla:</b> selecciona edificio, día y módulo donde necesitas ubicar una sección. Filtra por capacidad mínima según el cupo. <b>% Ocup.:</b> ocupación general del edificio en ese bloque — valor alto indica pocas salas disponibles. Usa el botón de descarga para compartir el listado con coordinadores.")
-        st.download_button("⬇️ Descargar Excel",to_xlsx(fd4),"salas_disponibles.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button("⬇️ Descargar Excel",to_xlsx(fd4),"salas_disponibles.csv","text/csv")
     else:
         st.warning("No hay salas libres con los filtros seleccionados.")
