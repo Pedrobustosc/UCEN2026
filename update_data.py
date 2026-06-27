@@ -297,7 +297,7 @@ def main():
     write_datasource(DATASOURCE_FILE, header_estatico, b_block)
 
     # Resumen final
-    duracion = (datetime.datetime.utcnow() - t_inicio).seconds
+    duracion = (datetime.datetime.now(_chile) - t_inicio).seconds
     print("\n" + "=" * 62)
     print("  COMPLETADO en %ds" % duracion)
     print("  Claves actualizadas (%d):" % len(all_updated))
