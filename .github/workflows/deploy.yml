@@ -16,6 +16,10 @@
 #
 #  TRIGGER MANUAL: también se puede ejecutar desde la pestaña Actions
 #  con "Run workflow" (útil para forzar un refresco sin subir Excel nuevo).
+#
+#  CIRCUIT BREAKER: timeout-minutes: 15 aborta cualquier run zombi.
+#  Si el proceso cuelga (Excel corrupto, loop de red) el job se cancela
+#  automáticamente y no consume minutos de GitHub Actions indefinidamente.
 # ═══════════════════════════════════════════════════════════════════════════
 
 name: Actualizar datos UCEN
@@ -55,6 +59,11 @@ jobs:
   actualizar-datos:
     name: Excel -> data_source.py -> Streamlit
     runs-on: ubuntu-latest
+
+    # CIRCUIT BREAKER: aborta el job si tarda más de 15 minutos.
+    # Previene que un Excel corrupto o un cuelgue de red consuma minutos
+    # de GitHub Actions indefinidamente.
+    timeout-minutes: 15
 
     steps:
       # ── 1. Checkout completo ───────────────────────────────────────────
@@ -102,6 +111,7 @@ jobs:
 
           if git diff --staged --quiet; then
             echo "data_source.py sin cambios - commit omitido."
+            echo "COMMIT_RESULT=sin_cambios" >> $GITHUB_ENV
           else
             TIMESTAMP=$(date -u '+%d/%m/%Y %H:%M UTC')
             ARCHIVOS=$(ls planeacion_anual.xlsx reservas.xlsx 2>/dev/null | tr '\n' ' ')
@@ -112,20 +122,67 @@ jobs:
           Motivo: ${{ github.event.inputs.motivo || 'push de Excel' }}"
 
             git push origin main
+            echo "COMMIT_RESULT=publicado" >> $GITHUB_ENV
             echo ""
             echo "data_source.py publicado en main."
             echo "Streamlit Cloud redespliegara la app en ~60 segundos."
           fi
 
-      # ── 7. Resumen del pipeline ───────────────────────────────────────
+      # ── 7. Resumen enriquecido (visible en pestaña Summary de Actions) ─
+      # Escribe un resumen Markdown en $GITHUB_STEP_SUMMARY.
+      # GitHub lo renderiza automáticamente en la UI de Actions como
+      # una tarjeta con formato rico — sin necesidad de abrir los logs.
       - name: Resumen del pipeline
         if: always()
         run: |
+          ESTADO="${{ job.status }}"
+          COMMIT_RES="${COMMIT_RESULT:-desconocido}"
+          HORA=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          # Icono de estado
+          if [ "$ESTADO" = "success" ]; then
+            ICONO="✅"
+          elif [ "$ESTADO" = "cancelled" ]; then
+            ICONO="⚠️"
+          else
+            ICONO="❌"
+          fi
+
+          # Resultado del commit
+          if [ "$COMMIT_RES" = "publicado" ]; then
+            COMMIT_MSG="📦 **data_source.py actualizado** — Streamlit redespliegará en ~60 s"
+          else
+            COMMIT_MSG="ℹ️ Sin cambios detectados — commit omitido"
+          fi
+
+          # Escribir resumen Markdown en la UI de GitHub Actions
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## ${ICONO} UCEN · Resumen de actualización
+
+          | Campo             | Valor                              |
+          |-------------------|------------------------------------|
+          | **Estado**        | ${ICONO} ${ESTADO}                 |
+          | **Disparado por** | ${{ github.actor }}                |
+          | **Commit origen** | \`${{ github.sha }}\`              |
+          | **Hora UTC**      | ${HORA}                            |
+          | **Motivo**        | ${{ github.event.inputs.motivo || 'push de Excel' }} |
+
+          ### Resultado
+          ${COMMIT_MSG}
+
+          ### Archivos Excel presentes
+          \`\`\`
+          $(ls -lh *.xlsx 2>/dev/null || echo "(ninguno)")
+          \`\`\`
+          EOF
+
+          # También imprimir en logs para trazabilidad
           echo "============================================"
           echo "  UCEN - Resumen de la actualizacion"
           echo "============================================"
           echo "  Disparado por : ${{ github.actor }}"
           echo "  Commit origen : ${{ github.sha }}"
-          echo "  Hora UTC      : $(date -u '+%Y-%m-%d %H:%M:%S')"
-          echo "  Estado final  : ${{ job.status }}"
+          echo "  Hora UTC      : ${HORA}"
+          echo "  Estado final  : ${ESTADO}"
+          echo "  Commit result : ${COMMIT_RES}"
           echo "============================================"
