@@ -457,18 +457,18 @@ with tabs[1]:
                     fig4 = px.bar(p3b.sort_values("Dia"),x="Dia",y="Libres",color="ML",barmode="group",
                                   color_discrete_sequence=BLUES,labels={"Dia":"","Libres":"Salas libres","ML":"Módulo"})
                     dl(fig4,360); st.plotly_chart(fig4,use_container_width=True)
-                leg("<b>Salas libres por día y módulo:</b> disponibilidad en ese edificio para cada combinación día-módulo.")
-                tbl = p3b.pivot(index="Dia",columns="ML",values="Libres").round(1)
-                st.dataframe(tbl,use_container_width=True)
-                p4b = fr2.groupby(["Dia","Modulo"])["Pct_Ocupacion"].mean().reset_index()
-                p4b["ML"]  = p4b["Modulo"].map(MODULOS)
-                p4b["Dia"] = pd.Categorical(p4b["Dia"],categories=DIAS_ORDER,ordered=True)
-                fig5 = px.line(p4b.sort_values("Dia"),x="Dia",y="Pct_Ocupacion",color="ML",markers=True,
-                               color_discrete_sequence=MULTI,labels={"Dia":"","Pct_Ocupacion":"% Ocupación","ML":"Módulo"})
-                fig5.add_hline(y=90,line_dash="dash",line_color=RED,line_width=1.5)
-                dl(fig5,300); fig5.update_layout(yaxis_range=[0,105])
-                st.plotly_chart(fig5,use_container_width=True)
-                leg("<b>Evolución semanal:</b> cómo varía la ocupación de cada módulo a lo largo de la semana.")
+                    leg("<b>Salas libres por día y módulo:</b> disponibilidad en ese edificio para cada combinación día-módulo.")
+                    tbl = p3b.pivot(index="Dia",columns="ML",values="Libres").round(1)
+                    st.dataframe(tbl,use_container_width=True)
+                    p4b = fr2.groupby(["Dia","Modulo"])["Pct_Ocupacion"].mean().reset_index()
+                    p4b["ML"]  = p4b["Modulo"].map(MODULOS)
+                    p4b["Dia"] = pd.Categorical(p4b["Dia"],categories=DIAS_ORDER,ordered=True)
+                    fig5 = px.line(p4b.sort_values("Dia"),x="Dia",y="Pct_Ocupacion",color="ML",markers=True,
+                                   color_discrete_sequence=MULTI,labels={"Dia":"","Pct_Ocupacion":"% Ocupación","ML":"Módulo"})
+                    fig5.add_hline(y=90,line_dash="dash",line_color=RED,line_width=1.5)
+                    dl(fig5,300); fig5.update_layout(yaxis_range=[0,105])
+                    st.plotly_chart(fig5,use_container_width=True)
+                    leg("<b>Evolución semanal:</b> cómo varía la ocupación de cada módulo a lo largo de la semana.")
 
 # ── TAB 3: CUPOS ─────────────────────────────────────────────────────────────
 with tabs[2]:
@@ -516,7 +516,7 @@ with tabs[3]:
             if label_periodo == "Anual 2026" and "Periodo" in df_fac.columns:
                 c1,c2 = st.columns(2)
                 for i,(per,grp) in enumerate(df_fac.groupby("Periodo")):
-                    grp2 = grp.copy(); grp2["Fac_corto"] = grp2["Facultad"].map(FAC_SHORT).fillna(grp2["Facultad"])
+                    grp2 = grp.copy()   # Fac_corto ya fue mapeado por dal_fac()
                     fig_f = px.bar(grp2.sort_values("Bloques_sala",ascending=True),
                                    x="Bloques_sala",y="Fac_corto",orientation="h",
                                    color="Bloques_sala",color_continuous_scale=[[0,"#1e3a5f"],[1,CYAN]],text="Bloques_sala",
@@ -743,6 +743,7 @@ with tabs[8]:
                 per_lbl = "2026-01" if p=="202601" else "2026-02"
                 ef_r = ef_f.groupby("Fac_corto").apply(
                     lambda x: (x["Registros"]*x["Ratio_prom"]).sum()/x["Registros"].sum()
+                    if x["Registros"].sum() > 0 else 0.0
                 ).reset_index()
                 ef_r.columns = ["Facultad","Ratio_prom"]; ef_r = ef_r.sort_values("Ratio_prom",ascending=True)
                 fig_ef = px.bar(ef_r,x="Ratio_prom",y="Facultad",orientation="h",
@@ -784,6 +785,7 @@ with tabs[8]:
                 with c2:
                     ef_r = ef_fac_f.groupby("Fac_corto").apply(
                         lambda x: (x["Registros"]*x["Ratio_prom"]).sum()/x["Registros"].sum()
+                        if x["Registros"].sum() > 0 else 0.0
                     ).reset_index()
                     ef_r.columns = ["Facultad","Ratio_prom"]; ef_r = ef_r.sort_values("Ratio_prom",ascending=True)
                     fig_e2 = px.bar(ef_r,x="Ratio_prom",y="Facultad",orientation="h",

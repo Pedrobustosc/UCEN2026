@@ -1,21 +1,30 @@
 #!/usr/bin/env python3
 """
 update_data.py -- Procesador de Excel para UCEN - Salas 2026
-Versión producción con arquitectura de backend robusta.
+Versión producción con arquitectura de backend robusta y remediación inteligente.
 
 ARQUITECTURA:
-  ┌─────────────────────────────────────────────┐
-  │  EXCEPCIONES TIPADAS                        │
-  │  DataError     — datos inválidos/corruptos  │
-  │  PipelineError — error de escritura/IO      │
-  ├─────────────────────────────────────────────┤
-  │  VALIDACIÓN DE ESQUEMA                      │
-  │  Cada hoja se valida antes de codificar.    │
-  │  Hojas vacías o sin columnas → advertencia. │
-  ├─────────────────────────────────────────────┤
-  │  ESCRITURA ATÓMICA                          │
-  │  .tmp + os.replace() — nunca estado parcial │
-  └─────────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────────┐
+  │  EXCEPCIONES TIPADAS                                    │
+  │  DataError     — datos inválidos/corruptos              │
+  │  PipelineError — error de escritura/IO                  │
+  ├─────────────────────────────────────────────────────────┤
+  │  REMEDIACIÓN INTELIGENTE (remediate_dataframe)          │
+  │  Se ejecuta ANTES de la validación de esquema.          │
+  │  Corrige automáticamente datos sucios del Excel:        │
+  │  · Columnas con espacios fantasma                       │
+  │  · Filas 100% vacías (ghost rows de Excel)              │
+  │  · Filas de encabezado duplicadas en el cuerpo          │
+  │  · Celdas con espacios múltiples internos               │
+  │  Cada corrección se registra en el log de CI.           │
+  ├─────────────────────────────────────────────────────────┤
+  │  VALIDACIÓN DE ESQUEMA                                  │
+  │  Cada hoja se valida DESPUÉS de la remediación.         │
+  │  Hojas vacías o sin columnas → advertencia.             │
+  ├─────────────────────────────────────────────────────────┤
+  │  ESCRITURA ATÓMICA                                      │
+  │  .tmp + os.replace() — nunca estado parcial             │
+  └─────────────────────────────────────────────────────────┘
 
 ENTRADAS:
   planeacion_anual.xlsx  — Hojas nombradas como claves en dict b
@@ -64,7 +73,6 @@ INT_COLUMNS_LOWER = {
     "cap_sala", "cap_actual", "cap_sugerida",
 }
 
-# Mínimo de columnas que debe tener un DataFrame para considerarse válido
 MIN_COLUMNS = 1
 MIN_ROWS    = 1
 
@@ -76,6 +84,80 @@ class DataError(Exception):
 
 class PipelineError(Exception):
     """Error de infraestructura: lectura de archivo, escritura o importación."""
+
+
+# ── CAPA DE REMEDIACIÓN INTELIGENTE ──────────────────────────────────────────
+
+def remediate_dataframe(df: pd.DataFrame, key: str) -> pd.DataFrame:
+    """
+    Limpieza inteligente de DataFrames provenientes de Excel institucional.
+    Se ejecuta ANTES de validate_dataframe() para corregir datos sucios
+    automáticamente en lugar de abortar el despliegue.
+
+    CORRECCIONES APLICADAS (en orden):
+      1. Normalizar nombres de columnas (strip de espacios)
+      2. Eliminar filas 100% vacías (filas fantasma del Excel)
+      3. Detectar y eliminar filas que replican el encabezado
+         (Excel a veces inserta una copia del header en el cuerpo de datos)
+      4. Normalizar espacios múltiples internos en celdas de texto
+         (reemplaza tabulaciones, saltos y espacios dobles por un solo espacio)
+
+    Cada corrección se registra en el log de CI para trazabilidad.
+    """
+    original_shape = df.shape
+    actions: list = []
+
+    # ── 1. Normalizar nombres de columnas ────────────────────────────────────
+    old_cols = list(df.columns)
+    df.columns = [str(c).strip() for c in df.columns]
+    renamed = [(o, n) for o, n in zip(old_cols, list(df.columns)) if str(o) != str(n)]
+    if renamed:
+        for old, new in renamed:
+            actions.append("Columna '%s' → '%s' (espacios eliminados)" % (old, new))
+
+    # ── 2. Eliminar filas 100% vacías ────────────────────────────────────────
+    before = len(df)
+    df = df.dropna(how="all").reset_index(drop=True)
+    dropped_empty = before - len(df)
+    if dropped_empty:
+        actions.append("%d fila(s) vacías eliminadas (ghost rows)" % dropped_empty)
+
+    # ── 3. Detectar filas que replican el encabezado ─────────────────────────
+    # Excel a veces inserta una línea extra con los nombres de columna
+    # en medio de los datos (especialmente al exportar o filtrar).
+    header_vals = [str(c).strip().lower() for c in df.columns]
+
+    def _is_header_row(row: "pd.Series") -> bool:
+        return [str(v).strip().lower() for v in row.values] == header_vals
+
+    mask_dup = df.apply(_is_header_row, axis=1)
+    dup_count = int(mask_dup.sum())
+    if dup_count:
+        df = df[~mask_dup].reset_index(drop=True)
+        actions.append("%d fila(s) de encabezado duplicado eliminadas" % dup_count)
+
+    # ── 4. Normalizar espacios múltiples en celdas de texto ──────────────────
+    # Reemplaza secuencias de whitespace (\t, \n, espacios dobles) por un
+    # único espacio, y elimina espacios al inicio/fin de cada celda.
+    fixed_cells = 0
+    for col in df.select_dtypes(include="object").columns:
+        cleaned = df[col].str.replace(r"\s+", " ", regex=True).str.strip()
+        diff_mask = df[col].notna() & (df[col] != cleaned)
+        fixed_cells += int(diff_mask.sum())
+        df[col] = cleaned
+    if fixed_cells:
+        actions.append("%d celda(s) con espacios irregulares normalizadas" % fixed_cells)
+
+    # ── Log de remediación ────────────────────────────────────────────────────
+    if actions:
+        final_shape = df.shape
+        print("   [REMEDIACIÓN '%s'] %s → %s" % (key, original_shape, final_shape))
+        for a in actions:
+            print("     ↳ ⚠  %s" % a)
+    else:
+        print("   ✓ [REMEDIACIÓN '%s'] Datos limpios — sin correcciones necesarias." % key)
+
+    return df
 
 
 # ── CAPA DE TRANSFORMACIÓN DE DATOS ──────────────────────────────────────────
@@ -98,14 +180,14 @@ def strip_string_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def validate_dataframe(df: pd.DataFrame, key: str) -> None:
     """Valida que el DataFrame cumpla el contrato mínimo de esquema.
+    Se ejecuta DESPUÉS de remediate_dataframe().
     Lanza DataError si no pasa la validación."""
     if df.shape[0] < MIN_ROWS:
-        raise DataError(f"'{key}': DataFrame sin filas de datos (solo encabezado o vacío).")
+        raise DataError("'%s': DataFrame sin filas de datos (solo encabezado o vacío)." % key)
     if df.shape[1] < MIN_COLUMNS:
-        raise DataError(f"'{key}': DataFrame sin columnas.")
-    # Detectar DataFrames que son puramente NaN (Excel con celdas vacías)
+        raise DataError("'%s': DataFrame sin columnas." % key)
     if df.dropna(how="all").empty:
-        raise DataError(f"'{key}': DataFrame con todas las celdas vacías.")
+        raise DataError("'%s': DataFrame con todas las celdas vacías." % key)
 
 
 def df_to_b64(df: pd.DataFrame) -> str:
@@ -134,9 +216,9 @@ def load_current_b(datasource_path: str) -> dict:
     try:
         spec.loader.exec_module(mod)
     except Exception as exc:
-        raise PipelineError(f"No se pudo importar {datasource_path}: {exc}") from exc
+        raise PipelineError("No se pudo importar %s: %s" % (datasource_path, exc)) from exc
     if not hasattr(mod, "b"):
-        raise PipelineError(f"{datasource_path} no contiene el dict b.")
+        raise PipelineError("%s no contiene el dict b." % datasource_path)
     return dict(mod.b)
 
 
@@ -186,10 +268,9 @@ def write_datasource_atomic(datasource_path: str, header: str, b_block: str) -> 
             f.write(content)
         os.replace(tmp_path, datasource_path)
     except OSError as exc:
-        # Limpiar .tmp si queda huérfano
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
-        raise PipelineError(f"Error escribiendo {datasource_path}: {exc}") from exc
+        raise PipelineError("Error escribiendo %s: %s" % (datasource_path, exc)) from exc
 
 
 def verify_roundtrip(b: dict, keys: list) -> list:
@@ -200,9 +281,9 @@ def verify_roundtrip(b: dict, keys: list) -> list:
         try:
             df = b64_to_df(b[key])
             validate_dataframe(df, key)
-            print("   OK '%s': %d filas x %d cols" % (key, len(df), len(df.columns)))
-        except (DataError, Exception) as exc:
-            print("   ERROR '%s': %s" % (key, exc))
+            print("   ✓ '%s': %d filas x %d cols" % (key, len(df), len(df.columns)))
+        except Exception as exc:
+            print("   ✗ '%s': %s" % (key, exc))
             errores.append(key)
     return errores
 
@@ -211,73 +292,105 @@ def verify_roundtrip(b: dict, keys: list) -> list:
 
 def procesar_planeacion(excel_path: str, b: dict) -> list:
     """Lee planeacion_anual.xlsx. Cada hoja cuyo nombre (strip) coincide
-    con una clave del dict b la actualiza con validación de esquema."""
-    print("\nProcesando %s..." % excel_path)
+    con una clave del dict b la actualiza con remediación + validación de esquema.
+
+    FLUJO POR HOJA:
+      1. Leer hoja con pd.ExcelFile.parse()
+      2. remediate_dataframe() — corrige datos sucios automáticamente
+      3. validate_dataframe()  — verifica contrato de esquema
+      4. df_to_b64()           — codifica a Base64
+    """
+    print("\n" + "─" * 62)
+    print("  [PLANEACIÓN] Procesando: %s" % excel_path)
+    print("─" * 62)
     try:
         xl = pd.ExcelFile(excel_path)
     except Exception as exc:
-        print("   ERROR al abrir: %s" % exc)
+        print("  ERROR al abrir el archivo: %s" % exc)
         return []
 
     hojas = xl.sheet_names
-    print("   Hojas encontradas (%d): %s" % (len(hojas), ", ".join(hojas)))
+    print("  Hojas encontradas (%d): %s" % (len(hojas), ", ".join(hojas)))
 
     keys_updated = []
-    for hoja in hojas:
+    for idx, hoja in enumerate(hojas, start=1):
         key = hoja.strip()
+        print("\n  [%d/%d] Procesando hoja '%s' → clave '%s'" % (idx, len(hojas), hoja, key))
+
         try:
             df = xl.parse(hoja)
         except Exception as exc:
-            print("   ADVERTENCIA '%s': error al leer — %s" % (hoja, exc))
+            print("   ✗ Error al leer hoja — %s" % exc)
             continue
+
+        # Remediación inteligente: corrige datos sucios antes de validar
+        df = remediate_dataframe(df, key)
 
         try:
             validate_dataframe(df, key)
         except DataError as exc:
-            print("   ADVERTENCIA '%s': %s — conservando valor anterior." % (hoja, exc))
+            print("   ⚠  %s — conservando valor anterior." % exc)
             continue
 
         b64 = df_to_b64(df)
         b[key] = b64
         keys_updated.append(key)
-        print("   '%s': %d filas x %d cols → %.1f KB Base64" % (
-            key, len(df), len(df.columns), len(b64) / 1024))
+        print("   ✓ CODIFICADO: %d filas × %d cols → %.1f KB Base64" % (
+            len(df), len(df.columns), len(b64) / 1024))
 
+    print("\n  [PLANEACIÓN] %d/%d hojas actualizadas." % (len(keys_updated), len(hojas)))
     return keys_updated
 
 
 def procesar_reservas(excel_path: str, b: dict) -> list:
     """Lee reservas.xlsx. Usa la hoja 'rev' si existe, sino la primera.
-    Valida esquema antes de codificar."""
-    print("\nProcesando %s..." % excel_path)
+    Aplica remediación inteligente + validación de esquema antes de codificar.
+
+    FLUJO:
+      1. Detectar hoja objetivo (rev > primera disponible)
+      2. remediate_dataframe() — corrige datos sucios automáticamente
+      3. validate_dataframe()  — verifica contrato de esquema
+      4. df_to_b64()           — codifica a Base64
+    """
+    print("\n" + "─" * 62)
+    print("  [RESERVAS] Procesando: %s" % excel_path)
+    print("─" * 62)
     try:
         xl = pd.ExcelFile(excel_path)
     except Exception as exc:
-        print("   ERROR al abrir: %s" % exc)
+        print("  ERROR al abrir el archivo: %s" % exc)
         return []
 
     if RESERVAS_KEY in xl.sheet_names:
         hoja_objetivo = RESERVAS_KEY
+        print("  Hoja objetivo: '%s'" % hoja_objetivo)
     else:
         hoja_objetivo = xl.sheet_names[0]
-        print("   INFO: hoja '%s' mapeada a clave '%s'" % (hoja_objetivo, RESERVAS_KEY))
+        print("  Hoja '%s' no encontrada. Usando primera hoja: '%s' → clave '%s'" % (
+            RESERVAS_KEY, hoja_objetivo, RESERVAS_KEY))
 
     try:
         df = xl.parse(hoja_objetivo)
     except Exception as exc:
-        print("   ERROR al leer hoja '%s': %s" % (hoja_objetivo, exc))
+        print("  ✗ Error al leer hoja '%s': %s" % (hoja_objetivo, exc))
         return []
+
+    print("\n  [1/1] Procesando hoja '%s' → clave '%s'" % (hoja_objetivo, RESERVAS_KEY))
+
+    # Remediación inteligente: corrige datos sucios antes de validar
+    df = remediate_dataframe(df, RESERVAS_KEY)
 
     try:
         validate_dataframe(df, RESERVAS_KEY)
     except DataError as exc:
-        print("   ADVERTENCIA reservas: %s — conservando valor anterior." % exc)
+        print("  ⚠  %s — conservando valor anterior." % exc)
         return []
 
     b64 = df_to_b64(df)
     b[RESERVAS_KEY] = b64
-    print("   '%s': %d filas x %d cols → %.1f KB Base64" % (
-        RESERVAS_KEY, len(df), len(df.columns), len(b64) / 1024))
+    print("  ✓ CODIFICADO: %d filas × %d cols → %.1f KB Base64" % (
+        len(df), len(df.columns), len(b64) / 1024))
+    print("\n  ✓ [RESERVAS] 1/1 hojas actualizadas.")
     return [RESERVAS_KEY]
 
 
@@ -292,13 +405,13 @@ def main() -> None:
     print("  %s (hora Chile)" % t_inicio.strftime("%Y-%m-%d %H:%M:%S"))
     print("=" * 62)
 
-    # Verificar que data_source.py existe
+    # ── Verificar que data_source.py existe ──────────────────────────────────
     if not os.path.exists(DATASOURCE_FILE):
         print("\nERROR: No se encontro '%s'." % DATASOURCE_FILE)
         print("   Ejecuta este script desde la raiz del proyecto.")
         sys.exit(1)
 
-    # Detectar archivos Excel disponibles
+    # ── Detectar archivos Excel disponibles ──────────────────────────────────
     tiene_planeacion = os.path.exists(PLANEACION_FILE)
     tiene_reservas   = os.path.exists(RESERVAS_FILE)
 
@@ -307,13 +420,13 @@ def main() -> None:
         print("   Esperados:")
         print("     - %s" % PLANEACION_FILE)
         print("     - %s" % RESERVAS_FILE)
-        sys.exit(0)   # exit 0 — no es error, solo nada que hacer
+        sys.exit(0)
 
     print("\nArchivos detectados:")
     print("   %s %s" % ("OK     " if tiene_planeacion else "AUSENTE", PLANEACION_FILE))
     print("   %s %s" % ("OK     " if tiene_reservas   else "AUSENTE", RESERVAS_FILE))
 
-    # Cargar estado actual
+    # ── Cargar estado actual de data_source.py ───────────────────────────────
     print("\nCargando estado actual de %s..." % DATASOURCE_FILE)
     try:
         b = load_current_b(DATASOURCE_FILE)
@@ -325,7 +438,7 @@ def main() -> None:
     header_estatico = read_static_header(DATASOURCE_FILE)
     all_updated: list = []
 
-    # Procesar Excel disponibles
+    # ── Procesar Excel disponibles ────────────────────────────────────────────
     if tiene_planeacion:
         keys = procesar_planeacion(PLANEACION_FILE, b)
         all_updated.extend(keys)
@@ -339,13 +452,15 @@ def main() -> None:
         print("   data_source.py NO fue modificado.")
         sys.exit(0)
 
-    # Timestamp en hora Chile
+    # ── Timestamp en hora Chile ───────────────────────────────────────────────
     now_str = datetime.datetime.now(_CHILE).strftime("%d/%m/%Y %H:%M")
     b["update_dt"] = now_str
     print("\nupdate_dt → %s (hora Chile)" % now_str)
 
-    # Verificar roundtrip con validación de esquema
-    print("\nVerificando integridad de %d claves..." % len(all_updated))
+    # ── Verificar roundtrip con validación de esquema ─────────────────────────
+    print("\n" + "─" * 62)
+    print("  [VERIFICACIÓN] Comprobando integridad de %d clave(s)..." % len(all_updated))
+    print("─" * 62)
     errores = verify_roundtrip(b, all_updated)
 
     if errores:
@@ -355,10 +470,10 @@ def main() -> None:
         print("\n   data_source.py NO fue modificado.")
         sys.exit(1)
 
-    print("   Todas las claves pasaron la verificacion.")
+    print("   Todas las claves pasaron la verificacion de integridad.")
 
-    # Escritura atómica
-    print("\nEscribiendo %s (escritura atomica)..." % DATASOURCE_FILE)
+    # ── Escritura atómica ─────────────────────────────────────────────────────
+    print("\n[ESCRITURA] Actualizando %s (escritura atomica)..." % DATASOURCE_FILE)
     try:
         b_block = build_b_block(b)
         write_datasource_atomic(DATASOURCE_FILE, header_estatico, b_block)
@@ -366,13 +481,13 @@ def main() -> None:
         print("\nERROR CRITICO al escribir: %s" % exc)
         sys.exit(1)
 
-    # Resumen final
+    # ── Resumen final ─────────────────────────────────────────────────────────
     duracion = (datetime.datetime.now(_CHILE) - t_inicio).seconds
     print("\n" + "=" * 62)
-    print("  COMPLETADO en %ds" % duracion)
+    print("  ✓ COMPLETADO en %ds" % duracion)
     print("  Claves actualizadas (%d):" % len(all_updated))
     for k in all_updated:
-        print("    - %s" % k)
+        print("    ✓ %s" % k)
     print("=" * 62)
 
     if not IS_CI:
