@@ -1,6 +1,4 @@
-# .github/workflows/deploy.yml
-
-name: 🔄 Actualizar datos UCEN
+name: Actualizar datos UCEN
 
 on:
   push:
@@ -14,14 +12,12 @@ concurrency:
   group: update-datasource
   cancel-in-progress: false
 
-# ▼▼▼ ESTE ES EL BLOQUE QUE AUTORIZA EL GIT PUSH AUTOMÁTICO ▼▼▼
 permissions:
   contents: write
-# ▲▲▲ Va FUERA de jobs, al nivel raíz del archivo ▲▲▲
 
 jobs:
   actualizar-datos:
-    name: 📊 Excel → data_source.py → Streamlit
+    name: Excel -> data_source.py -> Streamlit
     runs-on: ubuntu-latest
 
     steps:
@@ -44,10 +40,9 @@ jobs:
 
       - name: Verificar archivos de entrada
         run: |
-          echo "Archivos Excel detectados en el repositorio:"
-          ls -lh *.xlsx 2>/dev/null || echo "  (ningun .xlsx en raiz)"
-          [ -f "planeacion_anual.xlsx" ] && echo "  OK planeacion_anual.xlsx" || echo "  AUSENTE planeacion_anual.xlsx"
-          [ -f "reservas.xlsx"         ] && echo "  OK reservas.xlsx"         || echo "  AUSENTE reservas.xlsx"
+          ls -lh *.xlsx 2>/dev/null || echo "ningun .xlsx en raiz"
+          [ -f "planeacion_anual.xlsx" ] && echo "OK planeacion_anual.xlsx" || echo "AUSENTE planeacion_anual.xlsx"
+          [ -f "reservas.xlsx" ] && echo "OK reservas.xlsx" || echo "AUSENTE reservas.xlsx"
 
       - name: Procesar Excel -> data_source.py
         run: python update_data.py
