@@ -33,35 +33,28 @@ RESERVAS_FILE   = "reservas.xlsx"
 RESERVAS_KEY    = "rev"
 DATASOURCE_FILE = "data_source.py"
 
-# Columnas que se fuerzan a int (comparacion case-insensitive)
 INT_COLUMNS_LOWER = {
     "capacidad", "cupo", "cap", "capacidad_sala",
     "cap_sala", "cap_actual", "cap_sugerida",
 }
 
-# Detectar GitHub Actions u otro CI
 IS_CI = os.environ.get("CI", "false").lower() == "true"
 
 
 # ---- FUNCIONES DE DATOS ------------------------------------------------------
 
 def force_int_columns(df):
-    """Convierte a int todas las columnas de capacidad/cupo."""
     for col in df.columns:
         if col.lower() in INT_COLUMNS_LOWER:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
     return df
 
-
 def df_to_b64(df):
-    """DataFrame -> CSV UTF-8 -> Base64 ASCII."""
     df = force_int_columns(df.copy())
     csv_bytes = df.to_csv(index=False).encode("utf-8")
     return base64.b64encode(csv_bytes).decode("ascii")
 
-
 def b64_to_df(b64_str):
-    """Base64 -> DataFrame (para verificacion de roundtrip)."""
     raw = base64.b64decode(b64_str)
     return pd.read_csv(io.StringIO(raw.decode("utf-8")))
 
@@ -69,7 +62,6 @@ def b64_to_df(b64_str):
 # ---- FUNCIONES DE data_source.py ---------------------------------------------
 
 def load_current_b(datasource_path):
-    """Importa data_source.py y devuelve el dict b actual."""
     spec = importlib.util.spec_from_file_location("_ds_tmp", datasource_path)
     mod  = importlib.util.module_from_spec(spec)
     try:
@@ -82,12 +74,7 @@ def load_current_b(datasource_path):
         sys.exit(1)
     return dict(mod.b)
 
-
 def read_static_header(datasource_path):
-    """
-    Lee data_source.py y devuelve todo el contenido hasta (sin incluir)
-    la linea 'b = {'. Preserva intactos RANGO_ORDER, FAC_SHORT, etc.
-    """
     with open(datasource_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
     header = []
@@ -97,14 +84,7 @@ def read_static_header(datasource_path):
         header.append(line)
     return "".join(header)
 
-
 def build_b_block(b):
-    """
-    Construye el bloque 'b = { ... }' como string.
-    - update_dt -> comillas simples (texto plano)
-    - Resto     -> comillas dobles (Base64)
-    - Orden: update_dt primero, luego claves alfabeticas
-    """
     lines = ["b = {\n"]
     if "update_dt" in b:
         lines.append("    \"update_dt\": '%s',\n" % b["update_dt"])
@@ -113,22 +93,17 @@ def build_b_block(b):
     lines.append("}\n")
     return "".join(lines)
 
-
 def write_datasource(datasource_path, header, b_block):
-    """Escribe el nuevo data_source.py. Crea .bak solo si no estamos en CI."""
     if not IS_CI:
         backup = datasource_path + ".bak"
         with open(datasource_path, "rb") as f_in, open(backup, "wb") as f_out:
             f_out.write(f_in.read())
         print("   Backup local guardado: %s" % os.path.basename(backup))
-
     with open(datasource_path, "w", encoding="utf-8") as f:
         f.write(header)
         f.write(b_block)
 
-
 def verify_roundtrip(b, keys):
-    """Verifica que cada clave actualizada decodifica correctamente."""
     errores = []
     for key in keys:
         try:
@@ -143,10 +118,6 @@ def verify_roundtrip(b, keys):
 # ---- PROCESADORES DE EXCEL ---------------------------------------------------
 
 def procesar_planeacion(excel_path, b):
-    """
-    Lee planeacion_anual.xlsx.
-    Cada hoja cuyo nombre coincide con una clave en b actualiza esa clave.
-    """
     print("\nProcesando %s..." % excel_path)
     try:
         xl = pd.ExcelFile(excel_path)
@@ -165,25 +136,17 @@ def procesar_planeacion(excel_path, b):
         except Exception as exc:
             print("   ADVERTENCIA hoja '%s': error al leer - %s" % (hoja, exc))
             continue
-
         if df.empty:
             print("   ADVERTENCIA hoja '%s': vacia - conservando valor anterior." % hoja)
             continue
-
         b64 = df_to_b64(df)
         b[key] = b64
         keys_updated.append(key)
         print("   '%s': %d filas x %d cols -> %.1f KB Base64" % (
             key, len(df), len(df.columns), len(b64) / 1024))
-
     return keys_updated
 
-
 def procesar_reservas(excel_path, b):
-    """
-    Lee reservas.xlsx. Usa la hoja llamada 'rev' si existe,
-    sino la primera hoja. Mapea a la clave 'rev' en b.
-    """
     print("\nProcesando %s..." % excel_path)
     try:
         xl = pd.ExcelFile(excel_path)
@@ -227,16 +190,19 @@ def main():
 
     if not os.path.exists(DATASOURCE_FILE):
         print("\nERROR: No se encontro '%s'." % DATASOURCE_FILE)
-        print("   Ejecuta este script desde la raiz del proyecto.")
         sys.exit(1)
 
+    # ── TOLERANCIA: si no hay Excel, salir limpiamente con código 0 ──────
     tiene_planeacion = os.path.exists(PLANEACION_FILE)
     tiene_reservas   = os.path.exists(RESERVAS_FILE)
 
     if not tiene_planeacion and not tiene_reservas:
-        print("\nADVERTENCIA: Ningun archivo Excel encontrado.")
-        print("   Esperados: %s, %s" % (PLANEACION_FILE, RESERVAS_FILE))
-        sys.exit(0)
+        print("\n⚠️ No se detectaron archivos Excel para procesar. Saltando compilacion de Base64.")
+        print("   Esperados en la raiz del repositorio:")
+        print("     - %s" % PLANEACION_FILE)
+        print("     - %s" % RESERVAS_FILE)
+        print("\n   Sube al menos uno de estos archivos a GitHub para activar el pipeline.")
+        sys.exit(0)  # EXIT CODE 0 — no es un error, solo no hay nada que hacer
 
     print("\nArchivos detectados:")
     print("   %s %s" % ("OK" if tiene_planeacion else "AUSENTE", PLANEACION_FILE))
@@ -247,7 +213,6 @@ def main():
     print("   Claves existentes: %d" % len(b))
 
     header_estatico = read_static_header(DATASOURCE_FILE)
-
     all_updated = []
 
     if tiene_planeacion:
