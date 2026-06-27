@@ -190,19 +190,19 @@ def main():
 
     if not os.path.exists(DATASOURCE_FILE):
         print("\nERROR: No se encontro '%s'." % DATASOURCE_FILE)
+        print("   Ejecuta este script desde la raiz del proyecto.")
         sys.exit(1)
 
-    # ── TOLERANCIA: si no hay Excel, salir limpiamente con código 0 ──────
     tiene_planeacion = os.path.exists(PLANEACION_FILE)
     tiene_reservas   = os.path.exists(RESERVAS_FILE)
 
     if not tiene_planeacion and not tiene_reservas:
-        print("\n⚠️ No se detectaron archivos Excel para procesar. Saltando compilacion de Base64.")
+        print("\n WARNING: No se detectaron archivos Excel para procesar. Saltando compilacion de Base64.")
         print("   Esperados en la raiz del repositorio:")
         print("     - %s" % PLANEACION_FILE)
         print("     - %s" % RESERVAS_FILE)
         print("\n   Sube al menos uno de estos archivos a GitHub para activar el pipeline.")
-        sys.exit(0)  # EXIT CODE 0 — no es un error, solo no hay nada que hacer
+        sys.exit(0)
 
     print("\nArchivos detectados:")
     print("   %s %s" % ("OK" if tiene_planeacion else "AUSENTE", PLANEACION_FILE))
