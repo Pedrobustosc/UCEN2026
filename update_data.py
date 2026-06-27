@@ -1,16 +1,29 @@
 #!/usr/bin/env python3
 """
 update_data.py -- Procesador de Excel para UCEN - Salas 2026
-Corre en GitHub Actions (CI) o localmente.
+Versión producción con arquitectura de backend robusta.
+
+ARQUITECTURA:
+  ┌─────────────────────────────────────────────┐
+  │  EXCEPCIONES TIPADAS                        │
+  │  DataError     — datos inválidos/corruptos  │
+  │  PipelineError — error de escritura/IO      │
+  ├─────────────────────────────────────────────┤
+  │  VALIDACIÓN DE ESQUEMA                      │
+  │  Cada hoja se valida antes de codificar.    │
+  │  Hojas vacías o sin columnas → advertencia. │
+  ├─────────────────────────────────────────────┤
+  │  ESCRITURA ATÓMICA                          │
+  │  .tmp + os.replace() — nunca estado parcial │
+  └─────────────────────────────────────────────┘
 
 ENTRADAS:
-  planeacion_anual.xlsx  -- Hojas nombradas igual que las claves en dict b
-                            (ej: 202601_res, 202601_det, 202602_fac, etc.)
-  reservas.xlsx          -- Una hoja con reservas de salas -> clave "rev"
+  planeacion_anual.xlsx  — Hojas nombradas como claves en dict b
+  reservas.xlsx          — Hoja "rev" (o primera hoja)
 
 SALIDA:
-  data_source.py         -- Reescrito con dict b actualizado.
-                            Los mapeos estaticos se conservan intactos.
+  data_source.py         — Reescrito con dict b actualizado.
+                           Mapeos estáticos preservados intactos.
 """
 
 import sys
@@ -18,8 +31,15 @@ import os
 import base64
 import io
 import datetime
+import warnings
 from zoneinfo import ZoneInfo
-import importlib.util
+
+warnings.filterwarnings(
+    "ignore",
+    message="Workbook contains no default style",
+    category=UserWarning,
+    module="openpyxl",
+)
 
 try:
     import pandas as pd
@@ -27,68 +47,102 @@ except ImportError:
     print("ERROR: pandas no instalado. Ejecutar: pip install pandas openpyxl")
     sys.exit(1)
 
-# ---- CONFIGURACION -----------------------------------------------------------
+import importlib.util
+
+# ── CONFIGURACION ─────────────────────────────────────────────────────────────
 
 PLANEACION_FILE = "planeacion_anual.xlsx"
 RESERVAS_FILE   = "reservas.xlsx"
 RESERVAS_KEY    = "rev"
 DATASOURCE_FILE = "data_source.py"
 
-# Columnas que se fuerzan a int (comparacion case-insensitive)
+_CHILE = ZoneInfo("America/Santiago")
+IS_CI  = os.environ.get("CI", "false").lower() == "true"
+
 INT_COLUMNS_LOWER = {
     "capacidad", "cupo", "cap", "capacidad_sala",
     "cap_sala", "cap_actual", "cap_sugerida",
 }
 
-# Detectar GitHub Actions u otro CI
-IS_CI = os.environ.get("CI", "false").lower() == "true"
+# Mínimo de columnas que debe tener un DataFrame para considerarse válido
+MIN_COLUMNS = 1
+MIN_ROWS    = 1
 
 
-# ---- FUNCIONES DE DATOS ------------------------------------------------------
+# ── EXCEPCIONES TIPADAS ───────────────────────────────────────────────────────
 
-def force_int_columns(df):
-    """Convierte a int todas las columnas de capacidad/cupo."""
+class DataError(Exception):
+    """Dato de entrada inválido, corrupto o que no cumple el contrato de esquema."""
+
+class PipelineError(Exception):
+    """Error de infraestructura: lectura de archivo, escritura o importación."""
+
+
+# ── CAPA DE TRANSFORMACIÓN DE DATOS ──────────────────────────────────────────
+
+def force_int_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Fuerza a int las columnas de capacidad/cupo (comparación case-insensitive)."""
     for col in df.columns:
         if col.lower() in INT_COLUMNS_LOWER:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
     return df
 
 
-def df_to_b64(df):
-    """DataFrame -> CSV UTF-8 -> Base64 ASCII."""
-    df = force_int_columns(df.copy())
+def strip_string_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Elimina espacios fantasma en todas las columnas object.
+    Previene mismatch de claves por padding del Excel."""
+    for col in df.select_dtypes(include="object").columns:
+        df[col] = df[col].str.strip()
+    return df
+
+
+def validate_dataframe(df: pd.DataFrame, key: str) -> None:
+    """Valida que el DataFrame cumpla el contrato mínimo de esquema.
+    Lanza DataError si no pasa la validación."""
+    if df.shape[0] < MIN_ROWS:
+        raise DataError(f"'{key}': DataFrame sin filas de datos (solo encabezado o vacío).")
+    if df.shape[1] < MIN_COLUMNS:
+        raise DataError(f"'{key}': DataFrame sin columnas.")
+    # Detectar DataFrames que son puramente NaN (Excel con celdas vacías)
+    if df.dropna(how="all").empty:
+        raise DataError(f"'{key}': DataFrame con todas las celdas vacías.")
+
+
+def df_to_b64(df: pd.DataFrame) -> str:
+    """DataFrame → CSV UTF-8 → Base64 ASCII.
+    Aplica strip de strings y fuerza tipos int antes de codificar."""
+    df = df.copy()
+    df = strip_string_columns(df)
+    df = force_int_columns(df)
     csv_bytes = df.to_csv(index=False).encode("utf-8")
     return base64.b64encode(csv_bytes).decode("ascii")
 
 
-def b64_to_df(b64_str):
-    """Base64 -> DataFrame (para verificacion de roundtrip)."""
+def b64_to_df(b64_str: str) -> pd.DataFrame:
+    """Base64 → DataFrame. low_memory=False suprime DtypeWarning por tipos mixtos."""
     raw = base64.b64decode(b64_str)
-    return pd.read_csv(io.StringIO(raw.decode("utf-8")))
+    return pd.read_csv(io.StringIO(raw.decode("utf-8")), low_memory=False)
 
 
-# ---- FUNCIONES DE data_source.py ---------------------------------------------
+# ── CAPA DE ACCESO A data_source.py ──────────────────────────────────────────
 
-def load_current_b(datasource_path):
-    """Importa data_source.py y devuelve el dict b actual."""
+def load_current_b(datasource_path: str) -> dict:
+    """Importa data_source.py y devuelve el dict b actual.
+    Lanza PipelineError si el archivo no puede importarse."""
     spec = importlib.util.spec_from_file_location("_ds_tmp", datasource_path)
     mod  = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(mod)
     except Exception as exc:
-        print("ERROR: No se pudo importar %s: %s" % (datasource_path, exc))
-        sys.exit(1)
+        raise PipelineError(f"No se pudo importar {datasource_path}: {exc}") from exc
     if not hasattr(mod, "b"):
-        print("ERROR: %s no contiene el dict b." % datasource_path)
-        sys.exit(1)
+        raise PipelineError(f"{datasource_path} no contiene el dict b.")
     return dict(mod.b)
 
 
-def read_static_header(datasource_path):
-    """
-    Lee data_source.py y devuelve todo el contenido hasta (sin incluir)
-    la linea 'b = {'. Preserva intactos RANGO_ORDER, FAC_SHORT, etc.
-    """
+def read_static_header(datasource_path: str) -> str:
+    """Lee data_source.py y devuelve todo hasta (sin incluir) la línea 'b = {'.
+    Preserva intactos RANGO_ORDER, FAC_SHORT, ED_SHORT, etc."""
     with open(datasource_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
     header = []
@@ -99,13 +153,10 @@ def read_static_header(datasource_path):
     return "".join(header)
 
 
-def build_b_block(b):
-    """
-    Construye el bloque 'b = { ... }' como string.
-    - update_dt -> comillas simples (texto plano)
-    - Resto     -> comillas dobles (Base64)
-    - Orden: update_dt primero, luego claves alfabeticas
-    """
+def build_b_block(b: dict) -> str:
+    """Construye el bloque 'b = { ... }' como string.
+    update_dt en comillas simples (texto plano). Resto en comillas dobles (Base64).
+    Orden: update_dt primero, luego claves alfabéticas."""
     lines = ["b = {\n"]
     if "update_dt" in b:
         lines.append("    \"update_dt\": '%s',\n" % b["update_dt"])
@@ -115,39 +166,52 @@ def build_b_block(b):
     return "".join(lines)
 
 
-def write_datasource(datasource_path, header, b_block):
-    """Escribe el nuevo data_source.py. Crea .bak solo si no estamos en CI."""
+def write_datasource_atomic(datasource_path: str, header: str, b_block: str) -> None:
+    """Escritura atómica de data_source.py:
+      1. Escribe contenido completo en .tmp
+      2. os.replace() mueve el .tmp sobre el destino (operación atómica en Linux/Mac/Win)
+    Si el proceso muere a mitad, el archivo original queda intacto.
+    En modo local también guarda .bak del estado anterior."""
+    tmp_path = datasource_path + ".tmp"
+    content  = header + b_block
+
     if not IS_CI:
         backup = datasource_path + ".bak"
         with open(datasource_path, "rb") as f_in, open(backup, "wb") as f_out:
             f_out.write(f_in.read())
-        print("   Backup local guardado: %s" % os.path.basename(backup))
+        print("   Backup guardado: %s" % os.path.basename(backup))
 
-    with open(datasource_path, "w", encoding="utf-8") as f:
-        f.write(header)
-        f.write(b_block)
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.replace(tmp_path, datasource_path)
+    except OSError as exc:
+        # Limpiar .tmp si queda huérfano
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise PipelineError(f"Error escribiendo {datasource_path}: {exc}") from exc
 
 
-def verify_roundtrip(b, keys):
-    """Verifica que cada clave actualizada decodifica correctamente."""
+def verify_roundtrip(b: dict, keys: list) -> list:
+    """Verifica que cada clave actualizada decodifica correctamente.
+    Devuelve lista de claves que fallaron."""
     errores = []
     for key in keys:
         try:
             df = b64_to_df(b[key])
+            validate_dataframe(df, key)
             print("   OK '%s': %d filas x %d cols" % (key, len(df), len(df.columns)))
-        except Exception as exc:
+        except (DataError, Exception) as exc:
             print("   ERROR '%s': %s" % (key, exc))
             errores.append(key)
     return errores
 
 
-# ---- PROCESADORES DE EXCEL ---------------------------------------------------
+# ── PROCESADORES DE EXCEL ─────────────────────────────────────────────────────
 
-def procesar_planeacion(excel_path, b):
-    """
-    Lee planeacion_anual.xlsx.
-    Cada hoja cuyo nombre coincide con una clave en b actualiza esa clave.
-    """
+def procesar_planeacion(excel_path: str, b: dict) -> list:
+    """Lee planeacion_anual.xlsx. Cada hoja cuyo nombre (strip) coincide
+    con una clave del dict b la actualiza con validación de esquema."""
     print("\nProcesando %s..." % excel_path)
     try:
         xl = pd.ExcelFile(excel_path)
@@ -164,27 +228,27 @@ def procesar_planeacion(excel_path, b):
         try:
             df = xl.parse(hoja)
         except Exception as exc:
-            print("   ADVERTENCIA hoja '%s': error al leer - %s" % (hoja, exc))
+            print("   ADVERTENCIA '%s': error al leer — %s" % (hoja, exc))
             continue
 
-        if df.empty:
-            print("   ADVERTENCIA hoja '%s': vacia - conservando valor anterior." % hoja)
+        try:
+            validate_dataframe(df, key)
+        except DataError as exc:
+            print("   ADVERTENCIA '%s': %s — conservando valor anterior." % (hoja, exc))
             continue
 
         b64 = df_to_b64(df)
         b[key] = b64
         keys_updated.append(key)
-        print("   '%s': %d filas x %d cols -> %.1f KB Base64" % (
+        print("   '%s': %d filas x %d cols → %.1f KB Base64" % (
             key, len(df), len(df.columns), len(b64) / 1024))
 
     return keys_updated
 
 
-def procesar_reservas(excel_path, b):
-    """
-    Lee reservas.xlsx. Usa la hoja llamada 'rev' si existe,
-    sino la primera hoja. Mapea a la clave 'rev' en b.
-    """
+def procesar_reservas(excel_path: str, b: dict) -> list:
+    """Lee reservas.xlsx. Usa la hoja 'rev' si existe, sino la primera.
+    Valida esquema antes de codificar."""
     print("\nProcesando %s..." % excel_path)
     try:
         xl = pd.ExcelFile(excel_path)
@@ -204,23 +268,24 @@ def procesar_reservas(excel_path, b):
         print("   ERROR al leer hoja '%s': %s" % (hoja_objetivo, exc))
         return []
 
-    if df.empty:
-        print("   ADVERTENCIA: hoja de reservas vacia - conservando valor anterior.")
+    try:
+        validate_dataframe(df, RESERVAS_KEY)
+    except DataError as exc:
+        print("   ADVERTENCIA reservas: %s — conservando valor anterior." % exc)
         return []
 
     b64 = df_to_b64(df)
     b[RESERVAS_KEY] = b64
-    print("   '%s': %d filas x %d cols -> %.1f KB Base64" % (
+    print("   '%s': %d filas x %d cols → %.1f KB Base64" % (
         RESERVAS_KEY, len(df), len(df.columns), len(b64) / 1024))
     return [RESERVAS_KEY]
 
 
-# ---- MAIN --------------------------------------------------------------------
+# ── MAIN ──────────────────────────────────────────────────────────────────────
 
-def main():
-    entorno = "GitHub Actions (CI)" if IS_CI else "local"
-    _chile = ZoneInfo("America/Santiago")
-    t_inicio = datetime.datetime.now(_chile)
+def main() -> None:
+    entorno  = "GitHub Actions (CI)" if IS_CI else "local"
+    t_inicio = datetime.datetime.now(_CHILE)
 
     print("=" * 62)
     print("  UCEN - Actualizador de datos  [%s]" % entorno)
@@ -233,33 +298,34 @@ def main():
         print("   Ejecuta este script desde la raiz del proyecto.")
         sys.exit(1)
 
-    # Detectar que archivos Excel estan disponibles
+    # Detectar archivos Excel disponibles
     tiene_planeacion = os.path.exists(PLANEACION_FILE)
     tiene_reservas   = os.path.exists(RESERVAS_FILE)
 
     if not tiene_planeacion and not tiene_reservas:
-        print("\n⚠️ No se detectaron archivos Excel para procesar. Saltando compilacion de Base64.")
-        print("   Esperados en la raiz del repositorio:")
+        print("\nWARNING: No se detectaron archivos Excel para procesar.")
+        print("   Esperados:")
         print("     - %s" % PLANEACION_FILE)
         print("     - %s" % RESERVAS_FILE)
-        print("\n   Sube al menos uno de estos archivos a GitHub para activar el pipeline.")
-        sys.exit(0)  # EXIT CODE 0 — no es un error, solo no hay nada que hacer
+        sys.exit(0)   # exit 0 — no es error, solo nada que hacer
 
     print("\nArchivos detectados:")
-    print("   %s %s" % ("OK" if tiene_planeacion else "AUSENTE", PLANEACION_FILE))
-    print("   %s %s" % ("OK" if tiene_reservas else "AUSENTE", RESERVAS_FILE))
+    print("   %s %s" % ("OK     " if tiene_planeacion else "AUSENTE", PLANEACION_FILE))
+    print("   %s %s" % ("OK     " if tiene_reservas   else "AUSENTE", RESERVAS_FILE))
 
-    # Cargar el dict b actual
+    # Cargar estado actual
     print("\nCargando estado actual de %s..." % DATASOURCE_FILE)
-    b = load_current_b(DATASOURCE_FILE)
+    try:
+        b = load_current_b(DATASOURCE_FILE)
+    except PipelineError as exc:
+        print("\nERROR CRITICO: %s" % exc)
+        sys.exit(1)
     print("   Claves existentes: %d" % len(b))
 
-    # Leer el header estatico
     header_estatico = read_static_header(DATASOURCE_FILE)
+    all_updated: list = []
 
-    # Procesar los Excel disponibles
-    all_updated = []
-
+    # Procesar Excel disponibles
     if tiene_planeacion:
         keys = procesar_planeacion(PLANEACION_FILE, b)
         all_updated.extend(keys)
@@ -273,12 +339,12 @@ def main():
         print("   data_source.py NO fue modificado.")
         sys.exit(0)
 
-    # Actualizar timestamp
-    now_str = datetime.datetime.now(ZoneInfo("America/Santiago")).strftime("%d/%m/%Y %H:%M")
+    # Timestamp en hora Chile
+    now_str = datetime.datetime.now(_CHILE).strftime("%d/%m/%Y %H:%M")
     b["update_dt"] = now_str
-    print("\nupdate_dt -> %s (hora Chile)" % now_str)
+    print("\nupdate_dt → %s (hora Chile)" % now_str)
 
-    # Verificar roundtrip antes de escribir
+    # Verificar roundtrip con validación de esquema
     print("\nVerificando integridad de %d claves..." % len(all_updated))
     errores = verify_roundtrip(b, all_updated)
 
@@ -291,13 +357,17 @@ def main():
 
     print("   Todas las claves pasaron la verificacion.")
 
-    # Construir y escribir el nuevo data_source.py
-    print("\nEscribiendo %s..." % DATASOURCE_FILE)
-    b_block = build_b_block(b)
-    write_datasource(DATASOURCE_FILE, header_estatico, b_block)
+    # Escritura atómica
+    print("\nEscribiendo %s (escritura atomica)..." % DATASOURCE_FILE)
+    try:
+        b_block = build_b_block(b)
+        write_datasource_atomic(DATASOURCE_FILE, header_estatico, b_block)
+    except PipelineError as exc:
+        print("\nERROR CRITICO al escribir: %s" % exc)
+        sys.exit(1)
 
     # Resumen final
-    duracion = (datetime.datetime.now(_chile) - t_inicio).seconds
+    duracion = (datetime.datetime.now(_CHILE) - t_inicio).seconds
     print("\n" + "=" * 62)
     print("  COMPLETADO en %ds" % duracion)
     print("  Claves actualizadas (%d):" % len(all_updated))
