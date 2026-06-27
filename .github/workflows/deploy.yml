@@ -1,5 +1,26 @@
+# .github/workflows/deploy.yml
+# ═══════════════════════════════════════════════════════════════════════════
+#  UCEN · Pipeline de actualización automática de datos
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#  FLUJO:
+#    1. Subes planeacion_anual.xlsx y/o reservas.xlsx a GitHub (web UI)
+#    2. Este workflow despierta automáticamente
+#    3. Un servidor virtual instala Python + dependencias
+#    4. Ejecuta update_data.py → genera data_source.py actualizado
+#    5. GitHub Actions hace commit + push de data_source.py a main
+#    6. Streamlit Cloud detecta el push y redespliega la app
+#
+#  GUARD ANTI-LOOP: el trigger filtra solo cambios en *.xlsx. El commit
+#  automático de data_source.py NO vuelve a despertar este workflow.
+#
+#  TRIGGER MANUAL: también se puede ejecutar desde la pestaña Actions
+#  con "Run workflow" (útil para forzar un refresco sin subir Excel nuevo).
+# ═══════════════════════════════════════════════════════════════════════════
+
 name: Actualizar datos UCEN
 
+# ── TRIGGERS ──────────────────────────────────────────────────────────────
 on:
   push:
     branches:
@@ -8,62 +29,103 @@ on:
       - 'planeacion_anual.xlsx'
       - 'reservas.xlsx'
 
+  # Trigger manual desde la pestaña Actions -> "Run workflow"
+  workflow_dispatch:
+    inputs:
+      motivo:
+        description: 'Motivo del refresco manual (opcional)'
+        required: false
+        default: 'Refresco manual'
+
+# ── PERMISOS ──────────────────────────────────────────────────────────────
+# Declarados a nivel raiz: garantiza escritura incluso si la org tiene
+# permisos mas restrictivos por defecto (evita Exit Code 128 en git push).
+permissions:
+  contents: write
+
+# ── CONCURRENCIA ──────────────────────────────────────────────────────────
+# Evita ejecuciones paralelas si se suben ambos Excel simultaneamente.
+# cancel-in-progress: false deja que el primer run termine antes de iniciar otro.
 concurrency:
   group: update-datasource
   cancel-in-progress: false
 
-permissions:
-  contents: write
-
+# ── JOBS ──────────────────────────────────────────────────────────────────
 jobs:
   actualizar-datos:
     name: Excel -> data_source.py -> Streamlit
     runs-on: ubuntu-latest
 
     steps:
+      # ── 1. Checkout completo ───────────────────────────────────────────
       - name: Checkout repositorio
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
+      # ── 2. Python 3.11 ────────────────────────────────────────────────
       - name: Configurar Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
+      # ── 3. Dependencias ───────────────────────────────────────────────
       - name: Instalar pandas y openpyxl
         run: |
           python -m pip install --upgrade pip
           pip install "pandas>=2.0.0" "openpyxl>=3.1.0"
 
+      # ── 4. Verificar archivos de entrada ──────────────────────────────
       - name: Verificar archivos de entrada
         run: |
-          ls -lh *.xlsx 2>/dev/null || echo "ningun .xlsx en raiz"
-          [ -f "planeacion_anual.xlsx" ] && echo "OK planeacion_anual.xlsx" || echo "AUSENTE planeacion_anual.xlsx"
-          [ -f "reservas.xlsx" ] && echo "OK reservas.xlsx" || echo "AUSENTE reservas.xlsx"
+          echo "Archivos Excel detectados en el repositorio:"
+          ls -lh *.xlsx 2>/dev/null || echo "  (ningun .xlsx en raiz)"
+          echo ""
+          [ -f "planeacion_anual.xlsx" ] && echo "  OK planeacion_anual.xlsx" || echo "  AUSENTE planeacion_anual.xlsx"
+          [ -f "reservas.xlsx"         ] && echo "  OK reservas.xlsx"         || echo "  AUSENTE reservas.xlsx"
 
+      # ── 5. Procesar Excel -> data_source.py ───────────────────────────
       - name: Procesar Excel -> data_source.py
         run: python update_data.py
 
+      # ── 6. Commit solo si data_source.py realmente cambio ─────────────
+      #   git diff --staged --quiet => exit 0 si sin cambios.
+      #   Evita commits vacios que polucionan el historial.
       - name: Publicar data_source.py actualizado
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add data_source.py
+
           if git diff --staged --quiet; then
             echo "data_source.py sin cambios - commit omitido."
           else
             TIMESTAMP=$(date -u '+%d/%m/%Y %H:%M UTC')
-            git commit -m "data: actualizacion automatica ${TIMESTAMP}"
+            ARCHIVOS=$(ls planeacion_anual.xlsx reservas.xlsx 2>/dev/null | tr '\n' ' ')
+            git commit -m "data: actualizacion automatica ${TIMESTAMP}
+
+          Archivos: ${ARCHIVOS}
+          Actor: ${{ github.actor }}
+          Motivo: ${{ github.event.inputs.motivo || 'push de Excel' }}"
+
             git push origin main
+            echo ""
             echo "data_source.py publicado en main."
+            echo "Streamlit Cloud redespliegara la app en ~60 segundos."
           fi
 
+      # ── 7. Resumen del pipeline ───────────────────────────────────────
       - name: Resumen del pipeline
         if: always()
         run: |
-          echo "Disparado por: ${{ github.actor }}"
-          echo "Hora UTC: $(date -u '+%Y-%m-%d %H:%M:%S')"
-          echo "Estado: ${{ job.status }}"
+          echo "============================================"
+          echo "  UCEN - Resumen de la actualizacion"
+          echo "============================================"
+          echo "  Disparado por : ${{ github.actor }}"
+          echo "  Commit origen : ${{ github.sha }}"
+          echo "  Hora UTC      : $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "  Estado final  : ${{ job.status }}"
+          echo "============================================"
